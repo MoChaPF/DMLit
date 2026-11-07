@@ -52,7 +52,7 @@ body {
 /* ---------- 顶栏 ---------- */
 header {
   display: flex; align-items: center; gap: 10px;
-  height: 56px; padding: 0 22px;
+  height: 56px;
   background: rgba(255,255,255,.42);
   -webkit-backdrop-filter: blur(20px) saturate(185%);
   backdrop-filter: blur(20px) saturate(185%);
@@ -69,6 +69,34 @@ h1 { font-size: 16.5px; margin: 0; font-weight: 650; letter-spacing: .3px; }
   border: 1px solid rgba(255,255,255,.8); color: var(--text-mid);
   font-size: 13.5px; white-space: nowrap;
 }
+header.titlebar {
+  display: flex; align-items: center; gap: 0;
+  padding: 0 0 0 18px; height: 56px;
+  background: rgba(255,255,255,.42);
+  -webkit-backdrop-filter: blur(20px) saturate(185%);
+  backdrop-filter: blur(20px) saturate(185%);
+  border-bottom: 1px solid rgba(255,255,255,.55);
+  position: relative; z-index: 10;
+}
+header.titlebar .drag-zone {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 0; height: 100%;
+  -webkit-app-region: drag;
+}
+header.titlebar .drag-zone button,
+header.titlebar .drag-zone .chip,
+header.titlebar .drag-zone h1 {
+  -webkit-app-region: no-drag;
+}
+.win-btns { display: flex; height: 100%; flex: 0 0 auto; -webkit-app-region: no-drag; }
+.win-btn {
+  width: 46px; height: 100%; border: none; background: transparent;
+  color: #4a5265; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.win-btn:hover { background: rgba(31,45,80,.08); }
+.win-btn.close:hover { background: #e5484d; color: #fff; }
 .chip.ghost { background: rgba(255,255,255,.42); }
 .chip.wired { color: #15803d; background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.45); font-weight: 600; }
 .chip.wireless { color: #1d4ed8; background: rgba(43,92,255,.12); border-color: rgba(43,92,255,.42); font-weight: 600; }
@@ -346,17 +374,24 @@ setTimeout(function () {
   }
 }, 2000);
 </script>
-<header>
-  <div class="brand">
-    <div class="dot" id="dot"></div>
-    <h1>DMLit</h1>
+<header class="titlebar">
+  <div class="drag-zone">
+    <div class="brand">
+      <div class="dot" id="dot"></div>
+      <h1>DMLit</h1>
+    </div>
+    <span class="chip"><span class="sub" id="dev">VEGA108 · 连接中…</span></span>
+    <span class="chip ghost"><span class="ico">🔋</span><span id="batteryInfo">读取中…</span></span>
+    <div class="spacer"></div>
+    <span class="chip ghost" id="connChip">连接方式…</span>
+    <button class="stop" id="refreshBtn">刷新键盘连接状态</button>
+    <button class="stop" id="stopBtn">停止灯效</button>
   </div>
-  <span class="chip"><span class="sub" id="dev">VEGA108 · 连接中…</span></span>
-  <span class="chip ghost"><span class="ico">🔋</span><span id="batteryInfo">读取中…</span></span>
-  <div class="spacer"></div>
-  <span class="chip ghost" id="connChip">连接方式…</span>
-  <button class="stop" id="refreshBtn">刷新键盘连接状态</button>
-  <button class="stop" id="stopBtn">停止灯效</button>
+  <div class="win-btns">
+    <button class="win-btn" id="minBtn" title="最小化">─</button>
+    <button class="win-btn" id="maxBtn" title="最大化">□</button>
+    <button class="win-btn close" id="closeBtn" title="收进托盘">✕</button>
+  </div>
 </header>
 
 <main>
@@ -835,6 +870,10 @@ setTimeout(function () {
       document.getElementById('speedVal').textContent = speedText(e.target.value);
       await api.set_speed(e.target.value);
     });
+
+    document.getElementById('minBtn').addEventListener('click', function () { api.window_min(); });
+    document.getElementById('maxBtn').addEventListener('click', function () { api.window_max(); });
+    document.getElementById('closeBtn').addEventListener('click', function () { api.window_close(); });
 
     document.getElementById('refreshBtn').addEventListener('click', async () => {
       const btn = document.getElementById('refreshBtn');
