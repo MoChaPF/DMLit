@@ -792,6 +792,32 @@ class Api:
         except Exception:
             pass
 
+    def window_min(self):
+        try:
+            self.window.minimize()
+        except Exception:
+            pass
+        return {'ok': True}
+
+    def window_max(self):
+        try:
+            if getattr(self, '_maxed', False):
+                self.window.restore()
+                self._maxed = False
+            else:
+                self.window.maximize()
+                self._maxed = True
+        except Exception:
+            pass
+        return {'ok': True}
+
+    def window_close(self):
+        try:
+            self._close_cb()
+        except Exception:
+            pass
+        return {'ok': True}
+
     def status(self):
         print('STATUS page=', hex(self.kb.page) if self.kb.page else None, flush=True)
         return {
@@ -1137,7 +1163,9 @@ def main():
         'DMLit · VEGA108',
         os.path.join(here, 'index.html'),
         js_api=api, width=1112, height=948, min_size=(1112, 948), background_color='#f4f6f9',
+        frameless=True, easy_drag=True,
     )
+    api.window = window
 
     quitting = {'value': False}
     hidden_state = {'realtime': True}
@@ -1189,6 +1217,8 @@ def main():
         window.events.closing += on_closing
     except Exception:
         pass
+    # 前端自定义标题栏的关闭按钮走这里（收托盘）
+    api._close_cb = on_closing
 
     # 默认开启开机自启（用户选择）
     if not autostart_enabled():
