@@ -749,7 +749,14 @@ class Api:
         self.paint_colors = {}
         self.color_mode = 1
         self.direction = 3
+        self._batt_level = None
+        self._batt_charging = False
         self._apply_saved_state()
+        # 启动先读一次电量，托盘菜单要用
+        try:
+            self.battery()
+        except Exception:
+            pass
 
     # ---------- 记住退出时的选择，下次启动强制恢复 ----------
     def _save_state(self):
@@ -788,9 +795,43 @@ class Api:
             self.fw_mode = mode
             self.kb.set_mode(mode, self.fx.brightness, self.fx.speed,
                              self.fx.color, self.color_mode, self.direction)
-            print('RESTORE mode=', mode, 'color=', self.fx.color, flush=True)
+            print('RESTORE mode=%s color=%s bright=%s speed=%s cm=%s dir=%s' % (
+                mode, self.fx.color, self.fx.brightness, self.fx.speed, self.color_mode, self.direction), flush=True)
         except Exception:
             pass
+
+    def drag_start(self):
+        """标题栏按住时开一个线程用 SetWindowPos 跟手移动窗口"""
+        if getattr(self, '_dragging', False):
+            return {'ok': True}
+        self._dragging = True
+        threading.Thread(target=self._drag_loop, daemon=True).start()
+        return {'ok': True}
+
+    def drag_stop(self):
+        self._dragging = False
+        return {'ok': True}
+
+    def _drag_loop(self):
+        try:
+            hwnd = int(self.window.native.Handle)
+        except Exception as e:
+            self._dragging = False
+            return
+        user32 = ctypes.windll.user32
+        rect = wintypes.RECT()
+        pt = wintypes.POINT()
+        user32.GetWindowRect(hwnd, ctypes.byref(rect))
+        wx, wy = rect.left, rect.top
+        user32.GetCursorPos(ctypes.byref(pt))
+        mx, my = pt.x, pt.y
+        SWP_NOSIZE = 0x0001
+        SWP_NOZORDER = 0x0004
+        while getattr(self, '_dragging', False):
+            user32.GetCursorPos(ctypes.byref(pt))
+            user32.SetWindowPos(hwnd, 0, wx + (pt.x - mx), wy + (pt.y - my), 0, 0,
+                                SWP_NOSIZE | SWP_NOZORDER)
+            time.sleep(0.016)
 
     def window_min(self):
         try:
@@ -1050,7 +1091,9 @@ class Api:
             lv = self.kb.battery_24g()
             if lv is None:
                 return {'ok': False, 'reason': 'wired_only'}
-            return {'ok': True, 'level': max(0, min(100, lv)), 'charging': False, 'wireless': True}
+            self._batt_level = max(0, min(100, lv))
+            self._batt_charging = False
+            return {'ok': True, 'level': self._batt_level, 'charging': False, 'wireless': True}
         if self.kb.page != 0xFF68:
             return {'ok': False, 'reason': 'wired_only'}
         try:
@@ -1067,6 +1110,8 @@ class Api:
                     level = r[base + 25]
                     charging = r[base + 26]
                     if 0 <= level <= 100:
+                        self._batt_level = level
+                        self._batt_charging = bool(charging)
                         return {'ok': True, 'level': level, 'charging': 1 if charging else 0}
             return {'ok': False}
         except Exception as e:
@@ -1144,7 +1189,7 @@ def tray_image():
     """托盘图标：优先用 splash.png 缩一个 64px 的圆图标"""
     from PIL import Image
     here = os.path.dirname(os.path.abspath(__file__))
-    for name in ('splash.png', 'splash.jpg'):
+    for name in ('icon.png', 'splash.png', 'splash.jpg'):
         path = os.path.join(here, name)
         if os.path.exists(path):
             try:
@@ -1163,7 +1208,6 @@ def main():
         'DMLit · VEGA108',
         os.path.join(here, 'index.html'),
         js_api=api, width=1112, height=948, min_size=(1112, 948), background_color='#f4f6f9',
-        frameless=True, easy_drag=True,
     )
     api.window = window
 
@@ -1220,13 +1264,35 @@ def main():
     # 前端自定义标题栏的关闭按钮走这里（收托盘）
     api._close_cb = on_closing
 
-    # 默认开启开机自启（用户选择）
-    if not autostart_enabled():
-        set_autostart(True)
+    # 开机自启：没开就默认开；已开但路径过期（源码↔exe）就更新
+    try:
+        if not autostart_enabled():
+            set_autostart(True)
+        else:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, AUTOSTART_KEY) as _k:
+                _cur = winreg.QueryValueEx(_k, AUTOSTART_NAME)[0]
+            if _cur != autostart_command():
+                set_autostart(True)
+    except Exception:
+        pass
+
+    def device_label(item):
+        page = api.kb.page
+        conn = '2.4G 无线' if page == 0xFF60 else ('有线' if page == 0xFF68 else '未连接')
+        return 'VEGA108 · ' + conn
+
+    def battery_label(item):
+        lv = api._batt_level
+        if lv is None:
+            return '电量 --'
+        return '电量 %d%%%s' % (lv, ' · 充电中' if getattr(api, '_batt_charging', False) else '')
 
     import pystray
     menu = pystray.Menu(
-        pystray.MenuItem('显示主窗口', do_show, default=True),
+        pystray.MenuItem(device_label, do_show, default=True),
+        pystray.MenuItem(battery_label, do_show),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem('打开 DMLit', do_show),
         pystray.MenuItem('开机自启', toggle_autostart,
                          checked=lambda item: autostart_enabled()),
         pystray.Menu.SEPARATOR,

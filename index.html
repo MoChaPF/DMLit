@@ -70,8 +70,8 @@ h1 { font-size: 16.5px; margin: 0; font-weight: 650; letter-spacing: .3px; }
   font-size: 13.5px; white-space: nowrap;
 }
 header.titlebar {
-  display: flex; align-items: center; gap: 0;
-  padding: 0 0 0 18px; height: 56px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 22px; height: 56px;
   background: rgba(255,255,255,.42);
   -webkit-backdrop-filter: blur(20px) saturate(185%);
   backdrop-filter: blur(20px) saturate(185%);
@@ -81,22 +81,7 @@ header.titlebar {
 header.titlebar .drag-zone {
   display: flex; align-items: center; gap: 10px;
   flex: 1; min-width: 0; height: 100%;
-  -webkit-app-region: drag;
 }
-header.titlebar .drag-zone button,
-header.titlebar .drag-zone .chip,
-header.titlebar .drag-zone h1 {
-  -webkit-app-region: no-drag;
-}
-.win-btns { display: flex; height: 100%; flex: 0 0 auto; -webkit-app-region: no-drag; }
-.win-btn {
-  width: 46px; height: 100%; border: none; background: transparent;
-  color: #4a5265; font-size: 14px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .15s;
-}
-.win-btn:hover { background: rgba(31,45,80,.08); }
-.win-btn.close:hover { background: #e5484d; color: #fff; }
 .chip.ghost { background: rgba(255,255,255,.42); }
 .chip.wired { color: #15803d; background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.45); font-weight: 600; }
 .chip.wireless { color: #1d4ed8; background: rgba(43,92,255,.12); border-color: rgba(43,92,255,.42); font-weight: 600; }
@@ -387,11 +372,6 @@ setTimeout(function () {
     <button class="stop" id="refreshBtn">刷新键盘连接状态</button>
     <button class="stop" id="stopBtn">停止灯效</button>
   </div>
-  <div class="win-btns">
-    <button class="win-btn" id="minBtn" title="最小化">─</button>
-    <button class="win-btn" id="maxBtn" title="最大化">□</button>
-    <button class="win-btn close" id="closeBtn" title="收进托盘">✕</button>
-  </div>
 </header>
 
 <main>
@@ -530,8 +510,7 @@ setTimeout(function () {
       document.getElementById('dev').textContent =
         st.connected ? 'VEGA108 · 已连接' : 'VEGA108 · 未连接';
       updateConnChip(st.connected ? st.page : null);
-      // 启动时按已恢复的状态高亮对应控件
-      setTimeout(function () { applyUiFromStatus(st); }, 400);
+
       if (st.color) document.getElementById('color').value = st.color;
       if (st.effect) setActive(st.effect);
     } catch (e) { console.error(e); }
@@ -870,10 +849,6 @@ setTimeout(function () {
       document.getElementById('speedVal').textContent = speedText(e.target.value);
       await api.set_speed(e.target.value);
     });
-
-    document.getElementById('minBtn').addEventListener('click', function () { api.window_min(); });
-    document.getElementById('maxBtn').addEventListener('click', function () { api.window_max(); });
-    document.getElementById('closeBtn').addEventListener('click', function () { api.window_close(); });
 
     document.getElementById('refreshBtn').addEventListener('click', async () => {
       const btn = document.getElementById('refreshBtn');
@@ -1261,6 +1236,9 @@ setTimeout(function () {
     api.preview_start().catch(function () {});
     pullColors();
     setInterval(pullColors, 33);   // 前端拉取 30fps
+
+    // 所有初始化完成后再按后端状态回填控件（启动恢复、开机自启都用这口径）
+    api.status().then(function (st2) { applyUiFromStatus(st2); }).catch(function () {});
     requestAnimationFrame(drawPreview);
 
     // ---- 关闭启动动画（至少显示 2 秒）----    const splash = document.getElementById('splash');
