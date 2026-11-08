@@ -213,11 +213,11 @@ class Keyboard:
         n = wintypes.DWORD(0)
         kernel32.WriteFile(ctypes.c_void_p(self.h), ctypes.byref(buf), 65, ctypes.byref(n), None)
 
-    def _read_match(self, cmd, addr=None, tries=4):
+    def _read_match(self, cmd, addr=None, tries=4, timeout=800):
         """读包直到拿到指定命令（可选校验地址）的响应。
         帧头偏移：带 report id 时 base=1（r[1]=0x55），不带时 base=0。"""
         for _ in range(tries):
-            r = self._read_packet()
+            r = self._read_packet(timeout)
             if not r:
                 return None
             if len(r) < 9:
@@ -352,7 +352,7 @@ class Keyboard:
                 part = bytes(buf[addr:addr + chunk])
                 self._request(60, len(part), addr, part)
 
-    def set_pixels(self, pixels, force=False, max_chunks=None):
+    def set_pixels(self, pixels, force=False, max_chunks=None, cmd=50):
         """分帧更新：每帧最多发 max_chunks 块，轮转起点避免前面的块霸占"""
         if self.page == 0xFF60:
             return self._set_pixels_24g(pixels)
@@ -378,7 +378,7 @@ class Keyboard:
                 if force or self.last_chunks.get(addr) != chunk:
                     if (not force) and sent >= limit:
                         break
-                    self._write(50, n, addr, chunk, read=False)
+                    self._write(cmd, n, addr, chunk, read=False)
                     self.last_chunks[addr] = chunk
                     sent += 1
 
@@ -752,11 +752,14 @@ class Api:
         self._batt_level = None
         self._batt_charging = False
         self._apply_saved_state()
-        # 启动先读一次电量，托盘菜单要用
-        try:
-            self.battery()
-        except Exception:
-            pass
+        # 启动先读一次电量，托盘菜单要用。放到后台线程，
+        # 否则键盘一时没应答会把窗口创建卡住（表现就是界面一直「读取中」）
+        def _bg_battery():
+            try:
+                self.battery()
+            except Exception:
+                pass
+        threading.Thread(target=_bg_battery, daemon=True).start()
 
     # ---------- 记住退出时的选择，下次启动强制恢复 ----------
     def _save_state(self):
@@ -784,7 +787,7 @@ class Api:
             return
         try:
             mode = int(d.get('mode') or 0)
-            if not (1 <= mode <= 19):
+            if not (1 <= mode <= 20):
                 return
             c = d.get('color') or [255, 255, 255]
             self.fx.color = (int(c[0]), int(c[1]), int(c[2]))
@@ -814,7 +817,7 @@ class Api:
 
     def _drag_loop(self):
         try:
-            hwnd = int(self.window.native.Handle)
+            hwnd = int(self._window.native.Handle)
         except Exception as e:
             self._dragging = False
             return
@@ -835,7 +838,7 @@ class Api:
 
     def window_min(self):
         try:
-            self.window.minimize()
+            self._window.minimize()
         except Exception:
             pass
         return {'ok': True}
@@ -843,10 +846,10 @@ class Api:
     def window_max(self):
         try:
             if getattr(self, '_maxed', False):
-                self.window.restore()
+                self._window.restore()
                 self._maxed = False
             else:
-                self.window.maximize()
+                self._window.maximize()
                 self._maxed = True
         except Exception:
             pass
@@ -992,7 +995,7 @@ class Api:
                     for i in range(0, 5):
                         if i + 4 >= len(d):
                             break
-                        if 1 <= d[i] <= 19 and (d[i + 1] or d[i + 2] or d[i + 3]):
+                        if 1 <= d[i] <= 20 and (d[i + 1] or d[i + 2] or d[i + 3]):
                             # 把读到的模式记成当前固件模式，否则启动后 fw_mode 是 None，
                             # 改颜色/颜色模式时 _refresh_fw 不会重发，看起来「没反应」
                             self.fw_mode = int(d[i])
@@ -1099,9 +1102,9 @@ class Api:
         try:
             # 独占 IO 即可，不用停预览线程（停线程反而可能卡在它持有的锁上）
             with self.kb.io_lock:
-                for _ in range(5):
+                for _ in range(2):
                     self.kb._request(16, 24, 0)
-                    r = self.kb._read_match(16, None, tries=4)
+                    r = self.kb._read_match(16, None, tries=2, timeout=300)
                     if not r:
                         continue
                     base = 0 if r[0] == 0x55 else 1
@@ -1133,11 +1136,49 @@ class Api:
         self.fx.stop()
         self.music.stop()
         time.sleep(0.1)
-        self.fw_mode = None
-        self.kb.set_mode(128, self.fx.brightness, self.fx.speed, self.fx.color)
-        self.kb.set_pixels(pixels, force=True)
+        self.fw_mode = 20
+        # 20 号模式是键盘自己的「自定义」灯效；数据用 SET_CUSTOM_LED_DATA(36) 写进去，
+        # 否则走临时数据(50)几秒后会被固件动画覆盖回去
+        self.kb.set_mode(20, self.fx.brightness, self.fx.speed, self.fx.color)
+        time.sleep(0.06)
+        self.kb.set_pixels(pixels, force=True, cmd=36)
         save_paint(self.paint_colors)
         return {'ok': True, 'count': len(self.paint_colors)}
+
+    def paint_one(self, led, color):
+        """单键改色：把某颗灯设成指定颜色，其余沿用画板里已有的颜色"""
+        try:
+            idx = int(led)
+            c = [max(0, min(255, int(x))) for x in (list(color) + [0, 0, 0])[:3]]
+        except Exception:
+            return {'ok': False}
+        if not (0 <= idx < KEYS):
+            return {'ok': False}
+        self.paint_colors = dict(self.paint_colors)
+        self.paint_colors[str(idx)] = c
+        return self.paint(self.paint_colors)
+
+    def clear_paint(self):
+        self.paint_colors = {}
+        save_paint({})
+        return self.paint({})
+
+    def exit_paint(self):
+        """退出单键改色，回到上次用的固件灯效"""
+        self.paint_colors = {}
+        save_paint({})
+        self.fx.stop()
+        self.music.stop()
+        self.fw_mode = None
+        try:
+            with open(STATE_FILE, 'r', encoding='utf-8') as f:
+                m = int(json.load(f).get('mode') or 1)
+        except Exception:
+            m = 1
+        if not (1 <= m <= 20):
+            m = 1
+        self.set_firmware_mode(m)
+        return {'ok': True, 'mode': m}
 
     def stop(self):
         self.fx.stop()
@@ -1209,7 +1250,10 @@ def main():
         os.path.join(here, 'index.html'),
         js_api=api, width=1112, height=948, min_size=(1112, 948), background_color='#f4f6f9',
     )
-    api.window = window
+    api._window = window
+    # 注意：这个属性必须以 _ 开头。pywebview 注入 js_api 时会 dir(api) 递归遍历所有
+    # 公开属性来生成方法表，走到 window.native（.NET 对象）做相等比较时直接抛 TypeError，
+    # 整个 api 注入就废了（表现：window.pywebview.api 是空对象）。私有属性会被跳过。
 
     quitting = {'value': False}
     hidden_state = {'realtime': True}

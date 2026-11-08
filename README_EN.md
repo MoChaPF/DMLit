@@ -12,6 +12,7 @@ Lighting control tool for the **WEIKAV VEGA108** keyboard. Works over USB and 2.
 - **Music reactive**: captures system audio, four modes (bars / volcano / rainbow / RGB pulse)
 - **Real-time color readback**: reads per-key colors (USB `cmd 51`, wireless `cmd 59`)
 - **Battery level**: works on both USB and 2.4G
+- **Per-key coloring**: pick a color first, then click a keycap to paint it; select all / WASD / number row / arrow keys to recolor in bulk (keyboard mode 20, persisted via `SET_CUSTOM_LED_DATA`, so it no longer rolls back after a few seconds)
 - Color, brightness, speed and direction controls
 - **State memory**: saves the last effect/color/brightness to `state.json` and restores it on launch
 - Splash screen, Liquid Glass style UI
@@ -56,6 +57,7 @@ python app.py
 - After plugging/unplugging, click **刷新键盘连接状态** to re-detect
 - **Real-time readback uses keyboard bandwidth** — turn it off when you don't need live colors
 - While music mode is on, speed/brightness and the color palette are locked (the software takes over)
+- Per-key coloring: click **自定义** to enter the mode, pick a color first, then click a keycap. For bulk edits tick all / WASD / number row / arrow keys, then click a color
 - Closing the app returns the keyboard to its built-in lighting
 
 ## Files
@@ -76,6 +78,7 @@ Reverse-engineered from the vendor's web driver:
 - Frame header `0xAA`, response header `0x55`; commands: `GET_LED_EFFECT=19`, `SET_LED_EFFECT=35`, `SET_CUSTOM_LED_DATA=36`, `GET_ALL_LIGHTS_RGB=51`
 - Wireless (2.4G, usagePage `0xFF60`) has its own command subset: `GET_ALL_LIGHTS_RGB_24G_64_BYTE=59` (colors + battery), `SET_MUSIC_DATA_24G_64_BYTE=60` (push frames)
 - Firmware effects must include `driverSetting=255`, otherwise the wireless channel drops the whole packet
+- Per-key coloring uses keyboard **mode 20** (the firmware's own "custom" effect) with `SET_CUSTOM_LED_DATA=36`: 512 bytes = 128 LEDs × `[ledId, r, g, b]`. Writing it as temporary data (cmd 50) gets overwritten by the firmware animation within seconds
 
 ## Known limitations
 

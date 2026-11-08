@@ -160,6 +160,20 @@ canvas#preview { display: block; width: 100%; height: auto; }
 
 .label { display: block; color: var(--text-dim); font-size: 14px; margin: 13px 0 8px; }
 .grid { display: flex; flex-wrap: wrap; gap: 7px; }
+/* 灯效网格固定 5 列等宽，按钮宽度不再随文字长短变化，竖列才对得齐 */
+#fwGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+#fwGrid .fx { width: 100%; text-align: center; padding-left: 6px; padding-right: 6px; }
+/* 三个字的把字距拉开，宽度观感才和四个字的一致（text-indent 抵消末尾那点间距） */
+#fwGrid .fx.fx3 { letter-spacing: .34em; text-indent: .34em; }
+
+/* 单键改色：批量选键那一排 */
+.paint-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed rgba(120,140,170,.28); font-size: 13px; color: #3d4557; }
+.pchk { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+.pchk input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.pbtn { background: rgba(255,255,255,.72); border: 1px solid rgba(255,255,255,.92); border-radius: 11px; padding: 4px 13px; font-size: 12.5px; color: #3d4557; cursor: pointer; transition: .15s; }
+.pbtn:hover { color: var(--accent); border-color: rgba(43,92,255,.45); }
+.pbtn-red { color: #e04a4a; }
+.pbtn-red:hover { color: #ff2f2f; border-color: rgba(224,74,74,.5); }
 .row { display: flex; align-items: center; gap: 10px; }
 
 /* ---------- 按钮 ---------- */
@@ -402,15 +416,11 @@ setTimeout(function () {
   <div class="panels">
     <section class="card">
       <div class="card-head"><span class="card-title">灯光效果</span><span class="card-sub">固件内置</span></div>
-      <span class="label" style="margin-top:0">单色</span>
-      <div class="grid" id="fwGridMono">
+      <div class="grid" id="fwGrid">
         <div class="fx" data-fw="1">静态恒亮</div>
         <div class="fx" data-fw="2">单点亮</div>
         <div class="fx" data-fw="3">单熄灭</div>
         <div class="fx" data-fw="7">动态呼吸</div>
-      </div>
-      <span class="label">RGB</span>
-      <div class="grid" id="fwGridRgb">
         <div class="fx" data-fw="4">繁星点点</div>
         <div class="fx" data-fw="5">漫天飞雪</div>
         <div class="fx" data-fw="6">百花争艳</div>
@@ -426,6 +436,20 @@ setTimeout(function () {
         <div class="fx" data-fw="17">重峦叠嶂</div>
         <div class="fx" data-fw="18">斜风细雨</div>
         <div class="fx" data-fw="19">来回穿梭</div>
+        <div class="fx" data-fw="128">自定义</div>
+      </div>
+      <div class="paint-bar" id="paintBar" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px dashed rgba(120,140,170,.28);font-size:12.5px;color:#3d4757;">
+        <span id="paintSel" style="font-weight:600;color:#2b6ef0;">未选键</span>
+        <label class="pchk"><input type="checkbox" id="selAll"><span>全选</span></label>
+        <label class="pchk"><input type="checkbox" id="selWASD"><span>WASD</span></label>
+        <label class="pchk"><input type="checkbox" id="selNum"><span>数字键</span></label>
+        <label class="pchk"><input type="checkbox" id="selDir"><span>方向键</span></label>
+        <label class="pchk"><input type="checkbox" id="selRec"><span>记录</span></label>
+        <span style="flex:1"></span>
+        <button class="pbtn" id="selCancel">取消</button>
+        <button class="pbtn pbtn-red" id="selReset">重置</button>
+        <button class="stop" id="paintClear">清空全部</button>
+        <button class="stop" id="paintExit">退出单键改色</button>
       </div>
     </section>
 
@@ -489,8 +513,22 @@ setTimeout(function () {
   let current = 'solid';
 
   function ready(cb) {
-    if (window.pywebview && window.pywebview.api) cb();
-    else window.addEventListener('pywebviewready', cb);
+    function ok() {
+      var w = window.pywebview;
+      return !!(w && w.api && typeof w.api.status === 'function');
+    }
+    if (ok()) { cb(); return; }
+    var done = false;
+    function fire() { if (done) return; done = true; cb(); }
+    window.addEventListener('pywebviewready', function () { if (ok()) fire(); });
+    // 打包后 pywebview 是分步注入的：api 对象先出现，方法随后才挂上。
+    // 必须等到 status 真成了函数再初始化，否则会拿到空壳 api 直接报错。
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      if (ok()) { clearInterval(iv); fire(); }
+      else if (tries > 300) { clearInterval(iv); }
+    }, 50);
   }
 
   function setActive(name) {
@@ -513,7 +551,10 @@ setTimeout(function () {
 
       if (st.color) document.getElementById('color').value = st.color;
       if (st.effect) setActive(st.effect);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      try { document.getElementById('dev').textContent = 'ERR: ' + (e && e.message ? e.message : String(e)); } catch (e2) {}
+    }
 
     // 选固件灯效时自动关掉音乐律动，避免「按钮亮着但灯是固件效果」的状态错位
     // 固件效果和控件的对应关系：RGB 类自带颜色，静态类没有速度
@@ -535,7 +576,7 @@ setTimeout(function () {
         if (st.fwMode) {
           lastMode = parseInt(st.fwMode, 10);
           document.querySelectorAll('[data-fw]').forEach(function (el) {
-            el.classList.toggle('active', parseInt(el.dataset.fw, 10) === lastMode);
+            el.classList.toggle('active', parseInt(el.dataset.fw, 10) === fwIdOf(lastMode));
           });
         }
         if (typeof st.colorMode === 'number') {
@@ -572,6 +613,9 @@ setTimeout(function () {
     var FORCE_RGB_MODES = { 6:1, 8:1 }; // 百花争艳、光谱循环只能 RGB
     var DIR_ENABLED_MODES = {};        // 暂时全禁方向控件
 
+    // 20 号模式就是键盘自带的「自定义」灯效，界面上对应 data-fw=128 那个按钮
+    function fwIdOf(mode) { return (Number(mode) === 20) ? 128 : Number(mode); }
+
     function updateModeUI() {
       var cmEl = document.querySelector('input[name="cm"]:checked');
       var cm = cmEl ? parseInt(cmEl.value, 10) : 1;
@@ -606,12 +650,52 @@ setTimeout(function () {
       setCardsLocked(false);
     }
 
-    document.querySelectorAll('#fwGridMono .fx, #fwGridRgb .fx').forEach(el => {
+    // 自定义（单键改色）模式下，速度和颜色模式没意义，灰掉；
+    // 反过来，不在自定义模式时，下面那一排选键按钮全体禁用
+    function setCustomModeUI(on) {
+      var sp = document.getElementById('speed');
+      if (sp) {
+        sp.disabled = on;
+        var row = sp.closest ? sp.closest('.row') : null;
+        if (row) { row.style.opacity = on ? '.38' : ''; row.style.pointerEvents = on ? 'none' : ''; }
+      }
+      var segBox = null;
+      var first = document.querySelector('input[name="cm"]');
+      if (first && first.closest) segBox = first.closest('.seg');
+      document.querySelectorAll('input[name="cm"]').forEach(function (el) { el.disabled = on; });
+      if (segBox) { segBox.style.opacity = on ? '.38' : ''; segBox.style.pointerEvents = on ? 'none' : ''; }
+      var bar = document.getElementById('paintBar');
+      if (bar) {
+        bar.style.opacity = on ? '' : '.45';
+        bar.style.filter = on ? '' : 'grayscale(.6)';
+        bar.style.pointerEvents = on ? '' : 'none';
+        bar.querySelectorAll('input, button').forEach(function (el) { el.disabled = !on; });
+      }
+    }
+
+    document.querySelectorAll('#fwGrid .fx').forEach(el => {
+      if ((el.textContent || '').trim().length === 3) el.classList.add('fx3');
       el.addEventListener('click', async () => {
-        document.querySelectorAll('#fwGridMono .fx, #fwGridRgb .fx, #fxGrid .fx').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('#fwGrid .fx, #fxGrid .fx').forEach(x => x.classList.remove('active'));
         el.classList.add('active');
         stopMusicIfOn();
         var fw = parseInt(el.dataset.fw, 10);
+        if (fw === 128) {
+          // 「自定义」= 进入单键改色：清空画板，等点键帽或勾选分组
+          paintMap = {};
+          selSet = new Set();
+          ['selAll', 'selWASD', 'selNum', 'selDir'].forEach(function (id) {
+            var c = document.getElementById(id);
+            if (c) c.checked = false;
+          });
+          paintBarShow(true);
+          paintSelText();
+          setCustomModeUI(true);
+          lastMode = 128;
+          try { await api.paint({}); } catch (e) {}
+          return;
+        }
+        setCustomModeUI(false);
         await api.set_firmware_mode(fw);
         lastMode = fw;
         updateModeUI();
@@ -621,7 +705,7 @@ setTimeout(function () {
     // 电脑渲染的灯效（逐键推送）
     document.querySelectorAll('#fxGrid .fx').forEach(el => {
       el.addEventListener('click', async () => {
-        document.querySelectorAll('#fwGridMono .fx, #fwGridRgb .fx, #fxGrid .fx').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('#fwGrid .fx, #fxGrid .fx').forEach(x => x.classList.remove('active'));
         el.classList.add('active');
         stopMusicIfOn();
         await api.set_effect(el.dataset.fx);
@@ -756,6 +840,12 @@ setTimeout(function () {
     }
 
     function pushColor() {
+      // 单键改色：选色只是换「画笔」，不回头改已经点过的键；
+      // 只有批量选中共多颗键时，才按当前颜色整组上色
+      if (selSet.size > 1) {
+        colorSelected(hex2rgb(colorEl.value));
+        return;
+      }
       if (colorTimer) return;
       colorTimer = setTimeout(function () {
         colorTimer = null;
@@ -865,6 +955,20 @@ setTimeout(function () {
       btn.textContent = '刷新键盘连接状态';
     });
 
+    document.getElementById('paintClear').addEventListener('click', async function () {
+      paintMap = {};
+      selSet = new Set();
+      paintBarShow(false);
+      try { await api.paint({}); } catch (err) {}
+    });
+    document.getElementById('paintExit').addEventListener('click', async function () {
+      paintMap = {};
+      selSet = new Set();
+      paintBarShow(false);
+      setCustomModeUI(false);
+      try { await api.exit_paint(); } catch (err) {}
+    });
+
     document.getElementById('stopBtn').addEventListener('click', async () => {
       await api.stop();
       stopMusicIfOn();
@@ -872,11 +976,11 @@ setTimeout(function () {
       try {
         const cur = await api.current_effect();
         if (cur && cur.ok) {
-          const btn = document.querySelector('[data-fw="' + cur.mode + '"]');
+          const btn = document.querySelector('[data-fw="' + fwIdOf(cur.mode) + '"]');
           const nm = btn ? btn.textContent.trim() : ('模式 ' + cur.mode);
           document.getElementById('dev').textContent = 'VEGA108 · ' + nm;
           document.querySelectorAll('[data-fw]').forEach(function (el) {
-            el.classList.toggle('active', parseInt(el.dataset.fw, 10) === cur.mode);
+            el.classList.toggle('active', parseInt(el.dataset.fw, 10) === fwIdOf(cur.mode));
           });
         } else {
           document.getElementById('dev').textContent = 'VEGA108 · 已连接';
@@ -893,7 +997,7 @@ setTimeout(function () {
       musicBtn.classList.toggle('active', musicOn);
       setCardsLocked(musicOn);
       if (musicOn) {
-        document.querySelectorAll('#fwGridMono .fx, #fwGridRgb .fx').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('#fwGrid .fx').forEach(x => x.classList.remove('active'));
         await api.music_start();
       } else {
         await api.music_stop();
@@ -935,11 +1039,11 @@ setTimeout(function () {
         lastSyncKey = key;
         lastMode = cur.mode;
 
-        const btn = document.querySelector('[data-fw="' + cur.mode + '"]');
+        const btn = document.querySelector('[data-fw="' + fwIdOf(cur.mode) + '"]');
         const nm = btn ? btn.textContent.trim() : ('模式 ' + cur.mode);
         document.getElementById('dev').textContent = 'VEGA108 · ' + nm;
         document.querySelectorAll('[data-fw]').forEach(function (el) {
-          el.classList.toggle('active', parseInt(el.dataset.fw, 10) === cur.mode);
+          el.classList.toggle('active', parseInt(el.dataset.fw, 10) === fwIdOf(cur.mode));
         });
         var cmNorm = (cur.colorMode === 0) ? 0 : 1;
         document.querySelectorAll('input[name="cm"]').forEach(function (el) {
@@ -1020,10 +1124,11 @@ setTimeout(function () {
     setInterval(function () { refreshBattery(0); }, 600000);
 
     // ---- 读取键盘当前灯效状态 ----
+    setCustomModeUI(false);   // 默认不是自定义模式，先把下面那排禁用
     try {
       const cur = await api.current_effect();
       if (cur && cur.ok) {
-        const btn = document.querySelector('[data-fw="' + cur.mode + '"]');
+        const btn = document.querySelector('[data-fw="' + fwIdOf(cur.mode) + '"]');
         const nm = btn ? btn.textContent.trim() : ('模式 ' + cur.mode);
         document.getElementById('dev').textContent = 'VEGA108 · ' + nm;
       } else {
@@ -1031,8 +1136,9 @@ setTimeout(function () {
       }
       if (cur && cur.ok) {
         document.querySelectorAll('[data-fw]').forEach(el => {
-          el.classList.toggle('active', parseInt(el.dataset.fw, 10) === cur.mode);
+          el.classList.toggle('active', parseInt(el.dataset.fw, 10) === fwIdOf(cur.mode));
         });
+        setCustomModeUI(fwIdOf(cur.mode) === 128);
         document.querySelectorAll('input[name="cm"]').forEach(el => {
           el.checked = (parseInt(el.value, 10) === cur.colorMode);
         });
@@ -1088,6 +1194,123 @@ setTimeout(function () {
       pvCanvas.style.imageRendering = 'auto';
       pvReady = true;
     } catch (e) { console.error('preview layout failed', e); dbg('layout fail: ' + e); }
+
+    // ---- 单键改色 + 批量选键 ----
+    var selSet = new Set();
+    var paintMap = {};
+    var paintTimer = null;
+    var recordMode = false;
+
+    function paintBarShow(on) {
+      var b = document.getElementById('paintBar');
+      if (b) b.style.display = on ? 'flex' : 'none';
+    }
+    function paintSelText() {
+      var el = document.getElementById('paintSel');
+      if (!el) return;
+      if (!selSet.size) { el.textContent = '未选键'; return; }
+      if (selSet.size === 1) {
+        var id = Array.from(selSet)[0];
+        var k = keyByLed(id);
+        el.textContent = '已选 ' + (k ? labelOf(k.name || '') : '?') + ' · LED ' + id;
+      } else {
+        el.textContent = '已选 ' + selSet.size + ' 个键';
+      }
+    }
+    function keyByLed(id) {
+      for (var i = 0; i < pvKeys.length; i++) if (pvKeys[i].led === id) return pvKeys[i];
+      return null;
+    }
+    function flushPaint() {
+      if (paintTimer) return;
+      paintTimer = setTimeout(function () {
+        paintTimer = null;
+        try { api.paint(paintMap); } catch (err) {}
+      }, 120);
+    }
+    function colorSelected(rgb) {
+      if (!selSet.size) return;
+      selSet.forEach(function (id) { paintMap[id] = rgb; });
+      paintBarShow(true);
+      paintSelText();
+      flushPaint();
+    }
+    function pickKey(k) {
+      selSet = new Set([k.led]);
+      syncChecks();
+      paintBarShow(true);
+      if (recordMode) { paintSelText(); return; }   // 记录模式：只选中，不上色
+      colorSelected(hex2rgb(colorEl.value));
+    }
+    function groupIds(kind) {
+      var ids = [];
+      pvKeys.forEach(function (k) {
+        var n = String(k.name || '');
+        if (kind === 'wasd' && /^(W|A|S|D)$/i.test(n)) ids.push(k.led);
+        else if (kind === 'num' && /^[0-9]/.test(n)) ids.push(k.led);          // 主键盘 1 ! / 2 @ ...
+        else if (kind === 'dir' && /^(Up|Down|Left|Right)$|^[\u2190\u2191\u2192\u2193]$/.test(n)) ids.push(k.led);
+      });
+      return ids;
+    }
+    function syncChecks() {
+      var a = document.getElementById('selAll'), w = document.getElementById('selWASD');
+      var n = document.getElementById('selNum'), d = document.getElementById('selDir');
+      if (!a) return;
+      a.checked = pvKeys.length > 0 && selSet.size === pvKeys.length;
+      var g1 = groupIds('wasd'), g2 = groupIds('num'), g3 = groupIds('dir');
+      w.checked = g1.length > 0 && g1.every(function (i) { return selSet.has(i); });
+      n.checked = g2.length > 0 && g2.every(function (i) { return selSet.has(i); });
+      d.checked = g3.length > 0 && g3.every(function (i) { return selSet.has(i); });
+    }
+    function rebuildSelection() {
+      var ids = new Set();
+      if (document.getElementById('selAll').checked) pvKeys.forEach(function (k) { ids.add(k.led); });
+      if (document.getElementById('selWASD').checked) groupIds('wasd').forEach(function (i) { ids.add(i); });
+      if (document.getElementById('selNum').checked) groupIds('num').forEach(function (i) { ids.add(i); });
+      if (document.getElementById('selDir').checked) groupIds('dir').forEach(function (i) { ids.add(i); });
+      selSet = ids;
+      paintBarShow(selSet.size > 0);
+      paintSelText();
+    }
+    if (pvCanvas) {
+      pvCanvas.addEventListener('click', function (e) {
+        if (!pvReady) return;
+        var rect = pvCanvas.getBoundingClientRect();
+        var x = (e.clientX - rect.left) * (pvCanvas.width / rect.width);
+        var y = (e.clientY - rect.top) * (pvCanvas.height / rect.height);
+        for (var i = 0; i < pvKeys.length; i++) {
+          var k = pvKeys[i];
+          if (x >= k.x && x <= k.x + k.w && y >= k.y && y <= k.y + k.h) { pickKey(k); return; }
+        }
+      });
+    }
+    ['selAll', 'selWASD', 'selNum', 'selDir'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', rebuildSelection);
+    });
+    var recEl = document.getElementById('selRec');
+    if (recEl) recEl.addEventListener('change', function (e) { recordMode = e.target.checked; });
+    var cancelEl = document.getElementById('selCancel');
+    if (cancelEl) cancelEl.addEventListener('click', function () {
+      selSet = new Set();
+      ['selAll', 'selWASD', 'selNum', 'selDir'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.checked = false;
+      });
+      paintBarShow(false);
+      paintSelText();
+    });
+    var resetEl = document.getElementById('selReset');
+    if (resetEl) resetEl.addEventListener('click', async function () {
+      paintMap = {};
+      selSet = new Set();
+      ['selAll', 'selWASD', 'selNum', 'selDir'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.checked = false;
+      });
+      paintBarShow(false);
+      try { await api.paint({}); } catch (err) {}
+    });
 
     let realtimeOn = true;
     document.getElementById('rtToggle').addEventListener('change', async function (e) {
@@ -1211,6 +1434,13 @@ setTimeout(function () {
           roundRect(pvCtx, k.x + 0.5, k.y + 0.5, k.w, k.h, 4 * PV_SCALE);
           pvCtx.fill();
           pvCtx.restore();
+        }
+        // 单键改色：选中的键描一圈黄框
+        if (selSet.has(k.led)) {
+          pvCtx.strokeStyle = '#ffbf2e';
+          pvCtx.lineWidth = 3 * PV_SCALE;
+          roundRect(pvCtx, k.x + 0.5, k.y + 0.5, k.w, k.h, 4 * PV_SCALE);
+          pvCtx.stroke();
         }
         // 键名（白字，放大一点）
         if (k.w > 12 && k.h > 10) {
