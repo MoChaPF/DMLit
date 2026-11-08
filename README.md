@@ -21,7 +21,15 @@ WEIKAV VEGA108 键盘灯效工具。有线 / 2.4G 无线都能用，支持实时
 
 ## 下载
 
-不想装 Python 的，直接下 [Release 里的 DMLit.exe](https://gitee.com/Anran512/dmlit/releases/latest)，双击即可运行。
+不想装 Python 的，直接下 **DMLit.exe** 双击即可运行：
+
+- [Gitee Releases](https://gitee.com/Anran512/dmlit/releases/latest)
+- [GitHub Releases](https://github.com/MoChaPF/DMLit/releases)（同步发布）
+
+## 仓库
+
+- Gitee：https://gitee.com/Anran512/dmlit （主仓库）
+- GitHub：https://github.com/MoChaPF/DMLit （镜像）
 
 ## 环境要求
 
