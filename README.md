@@ -1,5 +1,7 @@
 # DMLit
 
+**中文** | [English](README_EN.md)
+
 WEIKAV VEGA108 键盘灯效工具。有线 / 2.4G 无线都能用，支持实时读色、固件灯效、音乐律动和本地预览。
 
 ![界面预览](screenshot.png)
