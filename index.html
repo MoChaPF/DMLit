@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<script>
+window.onerror = function (msg, src, line, col) {
+  try {
+    var d = document.getElementById('pvDbg');
+    if (d) d.textContent = 'JS错误: ' + msg + ' @' + line + ':' + col;
+  } catch (e) {}
+  return false;
+};
+</script>
+<meta charset="utf-8">
+<title>DMLit · VEGA108</title>
+<style>
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+:root {
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --line: #e7eaf1;
+  --line-soft: #eff2f7;
+  --text: #212838;
+  --text-mid: #4f586c;
+  --text-dim: #5c6678;
+  --accent: #2b5cff;
+  --accent-soft: #eef3ff;
+  --shadow: 0 1px 2px rgba(23,31,54,.04), 0 14px 30px -24px rgba(23,31,54,.40);
+}
+body {
+  margin: 0; font-family: "Segoe UI", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(900px 620px at 6% -14%, rgba(88,150,255,.72), transparent 62%),
+    radial-gradient(820px 560px at 98% -6%, rgba(255,120,190,.60), transparent 58%),
+    radial-gradient(760px 640px at 52% 114%, rgba(70,225,205,.50), transparent 62%),
+    radial-gradient(620px 520px at 16% 88%, rgba(160,120,255,.42), transparent 60%),
+    #e9eef8;
+  background-attachment: fixed;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d7dce6; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #c3cad8; }
+
+/* 连续曲率弧边（squircle），不支持时自动回退普通圆角 */
+.card, .preview-card, .chip, .fx, .stop, .color-input, select,
+.seg span, .dirbtn, .swatches i, .canvas-wrap {
+  corner-shape: squircle;
+}
+
+/* ---------- 顶栏 ---------- */
+header {
+  display: flex; align-items: center; gap: 10px;
+  height: 56px; padding: 0 22px;
+  background: rgba(255,255,255,.42);
+  -webkit-backdrop-filter: blur(20px) saturate(185%);
+  backdrop-filter: blur(20px) saturate(185%);
+  border-bottom: 1px solid rgba(255,255,255,.55);
+  position: sticky; top: 0; z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 9px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #c9cfdb; flex: 0 0 auto; transition: .25s; }
+.dot.on { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.14), 0 0 9px rgba(34,197,94,.5); }
+h1 { font-size: 16.5px; margin: 0; font-weight: 650; letter-spacing: .3px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px;
+  padding: 0 10px; border-radius: 999px; background: rgba(255,255,255,.58);
+  border: 1px solid rgba(255,255,255,.8); color: var(--text-mid);
+  font-size: 13.5px; white-space: nowrap;
+}
+.chip.ghost { background: rgba(255,255,255,.42); }
+.chip.wired { color: #15803d; background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.45); font-weight: 600; }
+.chip.wireless { color: #1d4ed8; background: rgba(43,92,255,.12); border-color: rgba(43,92,255,.42); font-weight: 600; }
+.chip.offline { color: #c02626; background: rgba(220,38,38,.12); border-color: rgba(220,38,38,.42); font-weight: 600; }
+.chip .ico { font-size: 13.5px; line-height: 1; }
+.sub { color: var(--text-dim); font-size: 13.5px; }
+.spacer { margin-left: auto; }
+
+/* ---------- 主体 ---------- */
+main { max-width: 1160px; width: 100%; padding: 16px 22px 36px; margin: 0 auto; }
+
+/* ---------- 玻璃卡片 ---------- */
+.preview-card {
+  background: rgba(255,255,255,.38);
+  -webkit-backdrop-filter: blur(24px) saturate(185%);
+  backdrop-filter: blur(24px) saturate(185%);
+  border: 1px solid rgba(255,255,255,.68);
+  border-radius: 30px;
+  padding: 14px;
+  box-shadow: 0 26px 54px -26px rgba(31,45,80,.48), inset 0 1px 0 rgba(255,255,255,.8);
+}
+.preview-note {
+  color: var(--text-dim); font-size: 13.5px;
+  padding: 0 6px 10px; line-height: 1.6;
+}
+.credit {
+  text-align: center; color: var(--text-dim);
+  font-size: 14px; letter-spacing: .4px;
+  margin: 18px 0 0;
+}
+.credit b { color: var(--text-mid); font-weight: 600; }
+.row.locked { opacity: .35; pointer-events: none; }
+.canvas-wrap {
+  border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,.7);
+  background: linear-gradient(160deg, rgba(255,255,255,.55) 0%, rgba(214,226,244,.45) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+}
+canvas#preview { display: block; width: 100%; height: auto; }
+.preview-bar { display: flex; align-items: center; gap: 12px; margin-top: 10px; min-height: 32px; }
+.pv-status { color: var(--text-dim); font-size: 14px; }
+.rt-warn { margin-left: auto; font-size: 12.5px; color: var(--text-dim); opacity: .85; white-space: nowrap; }
+.rt-toggle { display: flex; align-items: center; gap: 7px; margin-left: 16px; cursor: pointer; font-size: 13px; color: var(--text-dim); user-select: none; }
+.rt-toggle input { display: none; }
+.rt-track { width: 38px; height: 22px; border-radius: 11px; background: #d3d8e2; position: relative; transition: .2s; flex: 0 0 auto; }
+.rt-track::after { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.rt-toggle input:checked + .rt-track { background: #2b5cff; }
+.rt-toggle input:checked + .rt-track::after { left: 18px; }
+.rt-toggle.disabled { opacity: .38; pointer-events: none; }
+.music-set.locked { opacity: .38; pointer-events: none; }
+.masked { opacity: .38; pointer-events: none; user-select: none; }
+.music-set { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.music-set select { width: 116px; padding: 5px 8px; font-size: 13.5px; }
+.music-set input[type=range] { width: 112px; flex: none; }
+.music-set .mini { font-size: 12.5px; }
+.music-set .val { min-width: 20px; }
+.music-set .fx { padding: 6px 12px; }
+
+/* ---------- 三栏 ---------- */
+.panels {
+  display: grid; grid-template-columns: minmax(0,1fr) 268px 252px;
+  gap: 14px; margin-top: 14px; align-items: stretch;
+}
+.card {
+  background: rgba(255,255,255,.38);
+  -webkit-backdrop-filter: blur(22px) saturate(185%);
+  backdrop-filter: blur(22px) saturate(185%);
+  border: 1px solid rgba(255,255,255,.68);
+  border-radius: 30px;
+  padding: 15px 16px 16px;
+  box-shadow: 0 24px 46px -26px rgba(31,45,80,.46), inset 0 1px 0 rgba(255,255,255,.8);
+}
+.card.locked { opacity: .42; pointer-events: none; filter: saturate(.5); transition: opacity .2s; }
+.card-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 13px; }
+.card-title { font-size: 14px; font-weight: 650; color: #2b3244; letter-spacing: .2px; }
+.card-sub { font-size: 13.5px; color: var(--text-dim); }
+
+.label { display: block; color: var(--text-dim); font-size: 14px; margin: 13px 0 8px; }
+.grid { display: flex; flex-wrap: wrap; gap: 7px; }
+.row { display: flex; align-items: center; gap: 10px; }
+
+/* ---------- 按钮 ---------- */
+.fx {
+  background: rgba(255,255,255,.58); border: 1px solid rgba(255,255,255,.78); border-radius: 15px;
+  padding: 7px 13px; font-size: 13.5px; color: #3d4557; cursor: pointer;
+  transition: .16s; user-select: none; white-space: nowrap; line-height: 1.45;
+}
+.fx:hover { border-color: rgba(43,92,255,.45); color: var(--accent); background: rgba(255,255,255,.9); }
+.fx.active {
+  border-color: rgba(43,92,255,.9); color: #fff; background: var(--accent);
+  font-weight: 600; box-shadow: 0 6px 16px -6px rgba(43,92,255,.65);
+}
+.fx:active { transform: scale(.96); }
+
+.stop {
+  background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.78); border-radius: 15px;
+  padding: 7px 14px; color: var(--text-mid); cursor: pointer;
+  font-size: 13.5px; transition: .15s; white-space: nowrap;
+}
+.stop:hover { border-color: rgba(214,69,69,.5); color: #d64545; background: rgba(255,248,248,.85); }
+
+/* ---------- 滑块 ---------- */
+input[type=range] {
+  -webkit-appearance: none; appearance: none; flex: 1;
+  height: 9px; border-radius: 5px; cursor: pointer; outline: none;
+  background: linear-gradient(to right, #4a5265 0 var(--p, 50%), #e2e6ee var(--p, 50%) 100%);
+}
+input[type=range]::-webkit-slider-runnable-track {
+  height: 9px; background: transparent; border-radius: 5px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 21px; height: 21px; margin-top: -6px;
+  border-radius: 50%; background: #fff; border: none;
+  box-shadow: 0 2px 7px rgba(31,45,80,.30), 0 0 0 1px rgba(31,45,80,.05);
+  transition: transform .12s;
+}
+input[type=range]:active::-webkit-slider-thumb { transform: scale(.92); }
+input[type=range]:disabled { opacity: .35; cursor: not-allowed; }
+input[type=range]:disabled::-webkit-slider-thumb { box-shadow: 0 2px 7px rgba(31,45,80,.15); }
+.val {
+  color: var(--text-mid); font-size: 13.5px; min-width: 26px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 色板 ---------- */
+input[type=color] {
+  width: 58px; height: 34px; border: 1px solid var(--line); border-radius: 9px;
+  background: #fff; padding: 3px; cursor: pointer;
+}
+input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type=color]::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+/* ---------- 分段控件（颜色模式） ---------- */
+.seg { display: flex; gap: 2px; padding: 3px; background: rgba(255,255,255,.42); border: 1px solid rgba(255,255,255,.7); border-radius: 16px; corner-shape: squircle; }
+.seg label { flex: 1; }
+.seg input { display: none; }
+.seg span {
+  display: block; text-align: center; padding: 6px 0;
+  font-size: 13.5px; color: var(--text-mid); background: transparent;
+  border: none; border-radius: 10px; cursor: pointer; transition: .22s cubic-bezier(.4,0,.2,1);
+}
+.seg input:disabled + span { opacity: .38; cursor: not-allowed; }
+.seg input:checked + span {
+  background: #fff; color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 2px 8px -2px rgba(31,45,80,.28), inset 0 1px 0 rgba(255,255,255,.9);
+}
+.seg span:active { transform: scale(.97); }
+
+/* ---------- 方向 ---------- */
+.dirbtn {
+  flex: 1; height: 32px; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.8); border-radius: 999px;
+  color: var(--text-dim); font-size: 14px; cursor: pointer; transition: .18s;
+}
+.dirbtn:active { transform: scale(.96); }
+.dirbtn:hover { border-color: #a8beff; }
+.dirbtn.active { background: var(--accent-soft); border-color: #bfd0ff; color: var(--accent); }
+
+/* ---------- 下拉 ---------- */
+select {
+  width: 100%; background: rgba(255,255,255,.6); color: var(--text);
+  border: 1px solid rgba(255,255,255,.8); border-radius: 10px;
+  padding: 7px 9px; font-size: 13.5px; cursor: pointer; outline: none;
+}
+select:focus { border-color: rgba(43,92,255,.6); }
+
+/* ---------- 调色板（色轮 picker） ---------- */
+.picker { display: flex; flex-direction: column; gap: 10px; }
+.wheel-wrap { display: flex; gap: 12px; justify-content: center; align-items: center; }
+.wheel-box { position: relative; width: 176px; height: 176px; }
+#wheel { display: block; width: 176px; height: 176px; border-radius: 50%; cursor: crosshair; }
+.mark {
+  position: absolute; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1.5px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.3);
+  transform: translate(-50%, -50%); pointer-events: none;
+}
+.picker-row { display: flex; align-items: center; gap: 8px; }
+.mini-seg { flex: 0 0 auto; display: flex; gap: 2px; padding: 2px; background: rgba(255,255,255,.42); border: 1px solid rgba(255,255,255,.7); border-radius: 10px; corner-shape: squircle; }
+.mini-seg label { display: inline-block; }
+.mini-seg input { display: none; }
+.mini-seg span {
+  display: block; padding: 4px 7px; font-size: 11.5px; border-radius: 8px;
+  background: transparent; border: none; color: var(--text-mid); cursor: pointer; transition: .2s;
+}
+.mini-seg input:checked + span {
+  background: #fff; color: var(--accent); font-weight: 600;
+  box-shadow: 0 2px 6px -2px rgba(31,45,80,.25);
+}
+.color-input {
+  flex: 1; min-width: 0; height: 30px; padding: 0 9px;
+  font-family: ui-monospace, Consolas, monospace; font-size: 13.5px;
+  color: var(--text); background: rgba(255,255,255,.6);
+  border: 1px solid rgba(255,255,255,.8); border-radius: 9px; outline: none;
+}
+.color-input:focus { border-color: rgba(43,92,255,.6); background: rgba(255,255,255,.9); }
+
+/* ---------- 色块 ---------- */
+.swatches { display: flex; gap: 5px; margin-top: 2px; }
+.swatches i {
+  flex: 1; height: 20px; border-radius: 5px; cursor: pointer;
+  border: 1px solid rgba(0,0,0,.07); transition: transform .12s, box-shadow .12s;
+}
+.swatches i:hover { transform: translateY(-2px); box-shadow: 0 4px 10px -4px rgba(0,0,0,.35); }
+
+.mini { color: var(--text-dim); font-size: 13.5px; white-space: nowrap; }
+.hint { color: var(--text-dim); font-size: 12.5px; margin: 16px 0 0; line-height: 1.7; }
+
+  /* 启动画面（浅色） */
+  #splash {
+    position: fixed; inset: 0; z-index: 9999;
+    background: radial-gradient(circle at 50% 42%, #ffffff 0%, #eaeef5 70%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; transition: opacity .55s ease;
+  }
+  #splash.hide { opacity: 0; pointer-events: none; }
+  #splash svg { color: #2b5cff; }
+  .splash-logo {
+    width: 276px; height: 276px;
+    animation: splashIn .75s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .splash-logo img {
+    width: 100%; height: 100%; object-fit: contain;
+    filter: drop-shadow(0 12px 26px rgba(43,92,255,.18));
+    animation: splashBreath 2.9s ease-in-out .75s infinite;
+  }
+  @keyframes splashIn {
+    from { opacity: 0; transform: scale(.82); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes splashBreath {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.045); }
+  }
+  .splash-title {
+    color: #232838; font-size: 22px; letter-spacing: 4px; font-weight: 650;
+    animation: fadeUp .8s ease both;
+  }
+  .splash-sub {
+    color: #8b94a6; font-size: 13.5px; letter-spacing: 5px;
+    animation: fadeUp .8s .15s ease both;
+  }
+  .splash-bar {
+    margin-top: 8px; width: 180px; height: 3px; border-radius: 3px;
+    background: #dfe4ee; overflow: hidden;
+  }
+  .splash-fill {
+    width: 40%; height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #2b6cff, #62b8ff);
+    animation: slideBar 1.3s ease-in-out infinite;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideBar {
+    0% { transform: translateX(-110%); }
+    100% { transform: translateX(260%); }
+  }
+
+</style></head>
+<body>
+<div id="splash">
+  <div class="splash-logo"><img src="splash.png" alt=""></div>
+  <div class="splash-title">DMLit</div>
+  <div class="splash-sub">WEIKAV VEGA108</div>
+  <div class="splash-bar"><div class="splash-fill"></div></div>
+</div>
+<script>
+// 启动画面兜底：2 秒后无论如何都淡出（不依赖后续初始化）
+setTimeout(function () {
+  var s = document.getElementById('splash');
+  if (s) {
+    s.classList.add('hide');
+    setTimeout(function () { s.remove(); }, 700);
+  }
+}, 2000);
+</script>
+<header>
+  <div class="brand">
+    <div class="dot" id="dot"></div>
+    <h1>DMLit</h1>
+  </div>
+  <span class="chip"><span class="sub" id="dev">VEGA108 · 连接中…</span></span>
+  <span class="chip ghost"><span class="ico">🔋</span><span id="batteryInfo">读取中…</span></span>
+  <div class="spacer"></div>
+  <span class="chip ghost" id="connChip">连接方式…</span>
+  <button class="stop" id="refreshBtn">刷新键盘连接状态</button>
+  <button class="stop" id="stopBtn">停止灯效</button>
+</header>
+
+<main>
+  <div class="preview-card">
+    <div class="canvas-wrap"><canvas id="preview" width="1200" height="320"></canvas></div>
+    <div class="preview-bar">
+      <div class="music-set">
+        <div class="fx" id="musicBtn">🎵 音乐律动</div>
+        <select id="mmode">
+          <option value="bars">柱状频谱</option>
+          <option value="volcano">块状火山</option>
+          <option value="rainbow">彩虹波</option>
+          <option value="pulse">RGB 脉冲</option>
+        </select>
+        <span class="mini">灵敏度</span>
+        <input type="range" id="mgain" min="5" max="40" step="1" value="22">
+        <span class="val" id="mgainVal">2.2</span>
+      </div>
+      <span class="rt-warn">实时读取会占用键盘性能</span>
+      <label class="rt-toggle">
+        <input type="checkbox" id="rtToggle" checked>
+        <span class="rt-track"></span>
+        <span>实时读取</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="panels">
+    <section class="card">
+      <div class="card-head"><span class="card-title">灯光效果</span><span class="card-sub">固件内置</span></div>
+      <span class="label" style="margin-top:0">单色</span>
+      <div class="grid" id="fwGridMono">
+        <div class="fx" data-fw="1">静态恒亮</div>
+        <div class="fx" data-fw="2">单点亮</div>
+        <div class="fx" data-fw="3">单熄灭</div>
+        <div class="fx" data-fw="7">动态呼吸</div>
+      </div>
+      <span class="label">RGB</span>
+      <div class="grid" id="fwGridRgb">
+        <div class="fx" data-fw="4">繁星点点</div>
+        <div class="fx" data-fw="5">漫天飞雪</div>
+        <div class="fx" data-fw="6">百花争艳</div>
+        <div class="fx" data-fw="8">光谱循环</div>
+        <div class="fx" data-fw="9">彩泉涌动</div>
+        <div class="fx" data-fw="10">多彩纵横</div>
+        <div class="fx" data-fw="11">随波逐流</div>
+        <div class="fx" data-fw="12">彩虹风车</div>
+        <div class="fx" data-fw="13">一触即发</div>
+        <div class="fx" data-fw="14">一石二鸟</div>
+        <div class="fx" data-fw="15">涟漪扩散</div>
+        <div class="fx" data-fw="16">川流不息</div>
+        <div class="fx" data-fw="17">重峦叠嶂</div>
+        <div class="fx" data-fw="18">斜风细雨</div>
+        <div class="fx" data-fw="19">来回穿梭</div>
+      </div>
+    </section>
+
+    <section class="card" id="speedCard">
+      <div class="card-head"><span class="card-title">速度与亮度</span></div>
+      <span class="label" style="margin-top:0">速度</span>
+      <div class="row"><input type="range" id="speed" min="0" max="6" step="1" value="3"><span class="val" id="speedVal">3档</span></div>
+      <span class="label">亮度</span>
+      <div class="row"><input type="range" id="brightness" min="0" max="6" step="1" value="5"><span class="val" id="brightnessVal">83%</span></div>
+      <span class="label">颜色模式</span>
+      <div class="seg">
+        <label><input type="radio" name="cm" value="0"><span>单色</span></label>
+        <label><input type="radio" name="cm" value="1" checked><span>RGB</span></label>
+      </div>
+      <span class="label">方向</span>
+      <div class="row" id="dirRow" style="gap:6px"><div class="dirbtn" data-dir="0">▲</div><div class="dirbtn active" data-dir="1">▼</div></div>
+    </section>
+
+    <section class="card" id="paletteCard">
+      <div class="card-head"><span class="card-title">调色板</span></div>
+      <div class="picker">
+        <div class="wheel-wrap">
+          <div class="wheel-box">
+            <canvas id="wheel" width="176" height="176"></canvas>
+            <span class="mark" id="wheelDot"></span>
+          </div>
+        </div>
+        <div class="picker-row">
+          <div class="mini-seg">
+            <label><input type="radio" name="cf" value="hex" checked><span>HEX</span></label>
+            <label><input type="radio" name="cf" value="rgb"><span>RGB</span></label>
+          </div>
+          <input id="colorInput" class="color-input" value="#FF2828" spellcheck="false">
+        </div>
+        <div class="swatches" id="swatches">
+          <i data-c="#ff2828" style="background:#ff2828"></i>
+          <i data-c="#ff9a1f" style="background:#ff9a1f"></i>
+          <i data-c="#ffd60a" style="background:#ffd60a"></i>
+          <i data-c="#34c759" style="background:#34c759"></i>
+          <i data-c="#00c2d1" style="background:#00c2d1"></i>
+          <i data-c="#2b7cff" style="background:#2b7cff"></i>
+          <i data-c="#a855f7" style="background:#a855f7"></i>
+          <i data-c="#ff5fa2" style="background:#ff5fa2"></i>
+          <i data-c="#ffffff" style="background:#ffffff"></i>
+          <i data-c="#1a1a1a" style="background:#1a1a1a"></i>
+        </div>
+      </div>
+      <input type="color" id="color" value="#ff2828" style="display:none">
+    </section>
+  </div>
+
+  <p class="credit">本程序由 <b>抹茶泡芙</b> 和 <b>DSH大肥鱼</b> 共同完成，本程序开源。</p>
+</main>
+
+<script>
+// 布局自适应：不再用 body zoom 等比缩放（非整数 zoom 会让文字和边框发虚）
+</script>
+<script>
+(function () {
+  let api = null;
+  let current = 'solid';
+
+  function ready(cb) {
+    if (window.pywebview && window.pywebview.api) cb();
+    else window.addEventListener('pywebviewready', cb);
+  }
+
+  function setActive(name) {
+    document.querySelectorAll('.fx').forEach(el => {
+      el.classList.toggle('active', el.dataset.fx === name);
+    });
+    current = name;
+  }
+
+  ready(async function () {
+    const splashStart = Date.now();
+    api = window.pywebview.api;
+    try {
+      const st = await api.status();
+      window.__st = st;
+      document.getElementById('dot').classList.toggle('on', !!st.connected);
+      document.getElementById('dev').textContent =
+        st.connected ? 'VEGA108 · 已连接' : 'VEGA108 · 未连接';
+      updateConnChip(st.connected ? st.page : null);
+      // 启动时按已恢复的状态高亮对应控件
+      setTimeout(function () { applyUiFromStatus(st); }, 400);
+      if (st.color) document.getElementById('color').value = st.color;
+      if (st.effect) setActive(st.effect);
+    } catch (e) { console.error(e); }
+
+    // 选固件灯效时自动关掉音乐律动，避免「按钮亮着但灯是固件效果」的状态错位
+    // 固件效果和控件的对应关系：RGB 类自带颜色，静态类没有速度
+    var RGB_FW_MODES = { 4:1, 5:1, 6:1, 8:1, 10:1, 11:1, 12:1, 13:1, 14:1, 15:1, 16:1, 17:1, 18:1, 19:1 };
+    var NO_SPEED_MODES = { 1:1, 2:1, 3:1 };
+    var lastMode = -1;
+
+    function setCardsLocked(locked) {
+      ['speedCard', 'paletteCard'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('locked', !!locked);
+      });
+    }
+
+    // 按后端状态回填所有控件（启动、刷新连接、关音乐律动都用它）
+    function applyUiFromStatus(st) {
+      if (!st) return;
+      try {
+        if (st.fwMode) {
+          lastMode = parseInt(st.fwMode, 10);
+          document.querySelectorAll('[data-fw]').forEach(function (el) {
+            el.classList.toggle('active', parseInt(el.dataset.fw, 10) === lastMode);
+          });
+        }
+        if (typeof st.colorMode === 'number') {
+          var cmNorm = (st.colorMode === 0) ? 0 : 1;
+          document.querySelectorAll('input[name="cm"]').forEach(function (el) {
+            el.checked = (parseInt(el.value, 10) === cmNorm);
+          });
+        }
+        if (typeof st.direction === 'number') {
+          var dv = (st.direction === 3) ? 1 : 0;
+          document.querySelectorAll('.dirbtn').forEach(function (el) {
+            el.classList.toggle('active', parseInt(el.dataset.dir, 10) === dv);
+          });
+        }
+        if (st.color) applyHex(st.color, { silent: true });
+        if (typeof st.brightness === 'number') {
+          var brEl = document.getElementById('brightness');
+          if (brEl) { brEl.value = st.brightness; rangeFill(brEl); }
+          var bv = document.getElementById('brightnessVal');
+          if (bv) bv.textContent = brightText(st.brightness);
+        }
+        if (typeof st.speed === 'number') {
+          var spEl = document.getElementById('speed');
+          if (spEl) { spEl.value = st.speed; rangeFill(spEl); }
+          var sv = document.getElementById('speedVal');
+          if (sv) sv.textContent = speedText(st.speed);
+        }
+        updateModeUI();
+      } catch (e) {}
+    }
+
+    // 控件可用性：颜色模式为 RGB 时调色板不可用；静态模式禁速度
+    var NO_BRIGHT_MODES = {};         // 动态呼吸也允许调亮度（实测禁用反而不便）
+    var FORCE_RGB_MODES = { 6:1, 8:1 }; // 百花争艳、光谱循环只能 RGB
+    var DIR_ENABLED_MODES = {};        // 暂时全禁方向控件
+
+    function updateModeUI() {
+      var cmEl = document.querySelector('input[name="cm"]:checked');
+      var cm = cmEl ? parseInt(cmEl.value, 10) : 1;
+      var paletteCard = document.getElementById('paletteCard');
+      var speedInput = document.getElementById('speed');
+      var brInput = document.getElementById('brightness');
+      var monoEl = document.querySelector('input[name="cm"][value="0"]');
+      if (paletteCard && !musicOn) {
+        paletteCard.classList.toggle('locked', cm === 1);
+      }
+      if (speedInput) {
+        speedInput.disabled = !!NO_SPEED_MODES[lastMode];
+      }
+      if (brInput) {
+        brInput.disabled = !!NO_BRIGHT_MODES[lastMode];
+      }
+      if (monoEl) {
+        monoEl.disabled = !!FORCE_RGB_MODES[lastMode];
+      }
+      var dirRow = document.getElementById('dirRow');
+      if (dirRow) {
+        // 暂时所有模式都禁用方向；要放开就把模式编号填进 DIR_ENABLED_MODES
+        dirRow.classList.toggle('locked', !DIR_ENABLED_MODES[lastMode]);
+      }
+    }
+
+    function stopMusicIfOn() {
+      if (musicOn) {
+        musicOn = false;
+        musicBtn.classList.remove('active');
+      }
+      setCardsLocked(false);
+    }
+
+    document.querySelectorAll('#fwGridMono .fx, #fwGridRgb .fx').forEach(el => {
+      el.addEventListener('click', async () => {
+        document.querySelectorAll('#fwGridMono .fx, #fwGridRgb .fx, #fxGrid .fx').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        stopMusicIfOn();
+        var fw = parseInt(el.dataset.fw, 10);
+        await api.set_firmware_mode(fw);
+        lastMode = fw;
+        updateModeUI();
+      });
+    });
+
+    // 电脑渲染的灯效（逐键推送）
+    document.querySelectorAll('#fxGrid .fx').forEach(el => {
+      el.addEventListener('click', async () => {
+        document.querySelectorAll('#fwGridMono .fx, #fwGridRgb .fx, #fxGrid .fx').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        stopMusicIfOn();
+        await api.set_effect(el.dataset.fx);
+      });
+    });
+
+    // ---- 调色板：canvas 色轮 + 明度条 + HEX/RGB 输入 ----
+    const colorEl = document.getElementById('color');
+    const wheelEl = document.getElementById('wheel');
+    const wheelDot = document.getElementById('wheelDot');
+    const colorInput = document.getElementById('colorInput');
+    const WHEEL = 176;
+    let colorState = { h: 0, s: 1, v: 1 };
+    let lastUserEdit = 0;   // 用户刚动过控件的时间，轮询期间不和用户抢
+
+    // 滑块填充 + 数值文案（速度「N档」、亮度「N%」）
+    function rangeFill(el) {
+      if (!el) return;
+      var mn = +el.min || 0, mx = +el.max || 100, v = +el.value;
+      var pct = ((v - mn) / (mx - mn)) * 100;
+      el.style.setProperty('--p', pct + '%');
+    }
+    var connPage = '';
+    function updateConnChip(page) {
+      connPage = page || '';
+      var el = document.getElementById('connChip');
+      if (!el) return;
+      el.classList.remove('wired', 'wireless', 'offline');
+      if (!page) {
+        el.textContent = '未连接';
+        el.classList.add('offline');
+      } else if (page === '0xff68') {
+        el.textContent = '有线连接';
+        el.classList.add('wired');
+      } else if (page === '0xff60') {
+        el.textContent = '2.4G 无线';
+        el.classList.add('wireless');
+      } else {
+        el.textContent = '连接方式 ' + page;
+      }
+      // 等页面初始化（realtimeOn / pvTarget 等变量声明）跑完再应用限制，避免 TDZ
+      setTimeout(function () { try { applyConnRestrictions(page); } catch (e) {} }, 350);
+    }
+
+    // 无线模式下：音乐律动控件 + 实时读取开关套蒙版，实时读取强制关闭
+    function applyConnRestrictions(page) {
+      var wireless = (page === '0xff60');
+      var musicSet = document.querySelector('.music-set');
+      // 无线（cmd 60）现在也能推音乐律动，解除蒙版
+      if (musicSet) musicSet.classList.remove('masked');
+      var rt = document.getElementById('rtToggle');
+      var rtLabel = rt ? rt.closest('.rt-toggle') : null;
+      // 无线（cmd 59）已经能读灯色，实时读取恢复可用
+      if (rtLabel) rtLabel.classList.remove('masked');
+      if (rt) rt.disabled = false;
+      if (wireless) {
+        var mb = document.getElementById('musicBtn');
+        if (mb && mb.classList.contains('active')) { try { mb.click(); } catch (e) {} }
+      }
+    }
+
+    function speedText(v) { return v + '档'; }
+    function brightText(v) { return Math.round((+v) / 6 * 100) + '%'; }
+    let colorFormat = 'hex';
+    let colorTimer = null;
+
+    function hsv2rgb(h, s, v) {
+      const i = Math.floor(h * 6), f = h * 6 - i;
+      const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+      let r, g, b;
+      switch (((i % 6) + 6) % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        default: r = v; g = p; b = q;
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+    function rgb2hsv(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+      let h = 0;
+      if (d) {
+        if (mx === r) h = ((g - b) / d) % 6;
+        else if (mx === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h /= 6;
+        if (h < 0) h += 1;
+      }
+      return [h, mx ? d / mx : 0, mx];
+    }
+    function hex2rgb(hex) {
+      hex = String(hex).replace('#', '');
+      if (hex.length === 3) hex = hex.split('').map(function (c) { return c + c; }).join('');
+      const n = parseInt(hex || '000000', 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    function rgb2hex(r, g, b) {
+      return '#' + [r, g, b].map(function (v) {
+        return Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+      }).join('').toUpperCase();
+    }
+
+    function drawWheel() {
+      const ctx = wheelEl.getContext('2d');
+      const S = WHEEL, R = S / 2;
+      const img = ctx.createImageData(S, S);
+      for (let y = 0; y < S; y++) {
+        for (let x = 0; x < S; x++) {
+          const dx = x - R + 0.5, dy = y - R + 0.5;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          const o = (y * S + x) * 4;
+          if (d > R) { img.data[o + 3] = 0; continue; }
+          const hue = (Math.atan2(dy, dx) / (Math.PI * 2) + 1) % 1;
+          const rgb = hsv2rgb(hue, Math.min(1, d / R), 1);
+          img.data[o] = rgb[0]; img.data[o + 1] = rgb[1]; img.data[o + 2] = rgb[2]; img.data[o + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    try { drawWheel(); } catch (e) { console.error('wheel fail', e); }
+
+    function updatePickerUI() {
+      const ang = colorState.h * Math.PI * 2;
+      const rad = colorState.s * (WHEEL / 2);
+      wheelDot.style.left = (WHEEL / 2 + Math.cos(ang) * rad) + 'px';
+      wheelDot.style.top = (WHEEL / 2 + Math.sin(ang) * rad) + 'px';
+      const rgb = hex2rgb(colorEl.value);
+      colorInput.value = colorFormat === 'hex' ? colorEl.value.toUpperCase() : rgb.join(', ');
+    }
+
+    function pushColor() {
+      if (colorTimer) return;
+      colorTimer = setTimeout(function () {
+        colorTimer = null;
+        api.set_color(colorEl.value);
+      }, 70);
+    }
+
+    function applyHex(hex, opts) {
+      opts = opts || {};
+      const rgb = hex2rgb(hex);
+      const hsv = rgb2hsv(rgb[0], rgb[1], rgb[2]);
+      colorState = { h: hsv[0], s: hsv[1], v: hsv[2] };
+      colorEl.value = rgb2hex(rgb[0], rgb[1], rgb[2]);
+      updatePickerUI();
+      if (!opts.silent) {
+        lastUserEdit = Date.now();
+        pushColor();
+      }
+    }
+
+    function commitHsv() {
+      const rgb = hsv2rgb(colorState.h, colorState.s, colorState.v);
+      colorEl.value = rgb2hex(rgb[0], rgb[1], rgb[2]);
+      updatePickerUI();
+      pushColor();
+    }
+
+    document.querySelectorAll('input[type=range]').forEach(function (el) { rangeFill(el); });
+    (function () {
+      var sp = document.getElementById('speed'), br = document.getElementById('brightness');
+      var sv = document.getElementById('speedVal'), bv = document.getElementById('brightnessVal');
+      if (sp && sv) sv.textContent = speedText(sp.value);
+      if (br && bv) bv.textContent = brightText(br.value);
+    })();
+
+    let dragMode = null;
+    function handleWheel(e) {
+      const rect = wheelEl.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width * WHEEL - WHEEL / 2;
+      const y = (e.clientY - rect.top) / rect.height * WHEEL - WHEEL / 2;
+      const d = Math.sqrt(x * x + y * y);
+      colorState.s = Math.min(1, d / (WHEEL / 2));
+      colorState.h = (Math.atan2(y, x) / (Math.PI * 2) + 1) % 1;
+      commitHsv();
+    }
+    wheelEl.addEventListener('pointerdown', function (e) {
+      dragMode = 'wheel'; wheelEl.setPointerCapture(e.pointerId); handleWheel(e);
+    });
+    window.addEventListener('pointermove', function (e) {
+      if (dragMode !== 'wheel') return;
+      handleWheel(e);
+    });
+    window.addEventListener('pointerup', function () { dragMode = null; });
+
+    document.querySelectorAll('input[name="cf"]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        if (r.checked) { colorFormat = r.value; updatePickerUI(); }
+      });
+    });
+
+    colorInput.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      const txt = colorInput.value.trim();
+      let hex = null;
+      if (/^#?[0-9a-f]{6}$/i.test(txt)) hex = '#' + txt.replace('#', '');
+      else {
+        const m = txt.match(/(\d{1,3})\D+(\d{1,3})\D+(\d{1,3})/);
+        if (m) hex = rgb2hex(+m[1], +m[2], +m[3]);
+      }
+      if (hex) applyHex(hex); else updatePickerUI();
+    });
+    colorInput.addEventListener('blur', function () { updatePickerUI(); });
+
+    // 快捷色块
+    document.querySelectorAll('#swatches i').forEach(function (el) {
+      el.addEventListener('click', function () { applyHex(el.dataset.c); });
+    });
+
+    applyHex(colorEl.value, { silent: true });
+
+    document.getElementById('brightness').addEventListener('input', async e => {
+      lastUserEdit = Date.now();
+      rangeFill(e.target);
+      document.getElementById('brightnessVal').textContent = brightText(e.target.value);
+      await api.set_brightness(e.target.value);
+    });
+
+    document.getElementById('speed').addEventListener('input', async e => {
+      lastUserEdit = Date.now();
+      rangeFill(e.target);
+      document.getElementById('speedVal').textContent = speedText(e.target.value);
+      await api.set_speed(e.target.value);
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('refreshBtn');
+      btn.textContent = '刷新中…';
+      try {
+        await api.connect();
+        const st2 = await api.status();
+        updateConnChip(st2 && st2.connected ? st2.page : null);
+        document.getElementById('dot').classList.toggle('on', !!(st2 && st2.connected));
+        document.getElementById('dev').textContent = (st2 && st2.connected) ? 'VEGA108 · 已连接' : 'VEGA108 · 未连接';
+        await syncFromKeyboard();
+        await refreshBattery(0);
+      } catch (e) {}
+      btn.textContent = '刷新键盘连接状态';
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', async () => {
+      await api.stop();
+      stopMusicIfOn();
+      // 停止后键盘其实被设成静态恒亮，读回真实状态再显示，别写死「已停止灯效」
+      try {
+        const cur = await api.current_effect();
+        if (cur && cur.ok) {
+          const btn = document.querySelector('[data-fw="' + cur.mode + '"]');
+          const nm = btn ? btn.textContent.trim() : ('模式 ' + cur.mode);
+          document.getElementById('dev').textContent = 'VEGA108 · ' + nm;
+          document.querySelectorAll('[data-fw]').forEach(function (el) {
+            el.classList.toggle('active', parseInt(el.dataset.fw, 10) === cur.mode);
+          });
+        } else {
+          document.getElementById('dev').textContent = 'VEGA108 · 已连接';
+        }
+      } catch (e) {
+        document.getElementById('dev').textContent = 'VEGA108 · 已连接';
+      }
+    });
+
+    var musicOn = false;   // 用 var：applyConnRestrictions 可能在声明前访问
+    const musicBtn = document.getElementById('musicBtn');
+    musicBtn.addEventListener('click', async () => {
+      musicOn = !musicOn;
+      musicBtn.classList.toggle('active', musicOn);
+      setCardsLocked(musicOn);
+      if (musicOn) {
+        document.querySelectorAll('#fwGridMono .fx, #fwGridRgb .fx').forEach(x => x.classList.remove('active'));
+        await api.music_start();
+      } else {
+        await api.music_stop();
+        // 关掉后按后端保存的状态回填（无线下 syncFromKeyboard 读不到）
+        lastSyncKey = '';
+        try {
+          var st3 = await api.status();
+          applyUiFromStatus(st3);
+        } catch (e) {}
+      }
+    });
+
+    document.getElementById('mgain').addEventListener('input', async e => {
+      const v = (parseInt(e.target.value, 10) / 10).toFixed(1);
+      rangeFill(e.target);
+      document.getElementById('mgainVal').textContent = v;
+      await api.set_music_gain(parseFloat(v));
+    });
+
+    // ---- 轮询键盘真实状态：FN 手动切换效果/颜色后，软件也能跟上 ----
+    let lastSyncKey = '';
+    async function syncFromKeyboard() {
+      if (musicOn) {           // 音乐律动期间由软件接管，别覆盖
+        return;
+      }
+      if (connPage === '0xff60') {   // 无线通道读响应会阻塞，跳过状态读取
+        return;
+      }
+      // 用户刚动过滑块/色板，先别抢，等 2.5 秒
+      if (Date.now() - lastUserEdit < 2500) {
+        return;
+      }
+      try {
+        const cur = await api.current_effect();
+        if (!cur || !cur.ok) return;
+        const cols = cur.color || [0, 0, 0];
+        const key = [cur.mode, cols.join(','), cur.colorMode, cur.brightness, cur.speed, cur.direction].join('|');
+        if (key === lastSyncKey) return;      // 没变化就不动 UI，免得打架
+        lastSyncKey = key;
+        lastMode = cur.mode;
+
+        const btn = document.querySelector('[data-fw="' + cur.mode + '"]');
+        const nm = btn ? btn.textContent.trim() : ('模式 ' + cur.mode);
+        document.getElementById('dev').textContent = 'VEGA108 · ' + nm;
+        document.querySelectorAll('[data-fw]').forEach(function (el) {
+          el.classList.toggle('active', parseInt(el.dataset.fw, 10) === cur.mode);
+        });
+        var cmNorm = (cur.colorMode === 0) ? 0 : 1;
+        document.querySelectorAll('input[name="cm"]').forEach(function (el) {
+          el.checked = (parseInt(el.value, 10) === cmNorm);
+        });
+        document.querySelectorAll('.dirbtn').forEach(function (el) {
+          const v = (cur.direction === 3) ? 1 : 0;
+          el.classList.toggle('active', parseInt(el.dataset.dir, 10) === v);
+        });
+        if (cur.color && cur.color.length === 3) {
+          const hex = '#' + cur.color.map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+          applyHex(hex, { silent: true });
+        }
+        const brEl = document.getElementById('brightness');
+        const spEl = document.getElementById('speed');
+        if (brEl && cur.brightness >= 0 && cur.brightness <= 6) {
+          brEl.value = cur.brightness;
+          rangeFill(brEl);
+          const bv = document.getElementById('brightnessVal');
+          if (bv) bv.textContent = brightText(cur.brightness);
+        }
+        if (spEl && cur.speed >= 0 && cur.speed <= 6) {
+          spEl.value = cur.speed;
+          rangeFill(spEl);
+          const sv = document.getElementById('speedVal');
+          if (sv) sv.textContent = speedText(cur.speed);
+        }
+        updateModeUI();
+      } catch (e) {}
+    }
+    setTimeout(syncFromKeyboard, 1800);
+    setInterval(syncFromKeyboard, 2000);
+
+    document.getElementById('mmode').addEventListener('change', async e => {
+      await api.set_music_mode(e.target.value);
+    });
+
+    document.querySelectorAll('input[name="cm"]').forEach(el => {
+      el.addEventListener('change', async () => {
+        if (el.checked) {
+          lastUserEdit = Date.now();
+          await api.set_color_mode(el.value);
+          updateModeUI();
+        }
+      });
+    });
+
+    document.querySelectorAll('.dirbtn').forEach(el => {
+      el.addEventListener('click', async () => {
+        document.querySelectorAll('.dirbtn').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        await api.set_direction(el.dataset.dir);
+      });
+    });
+
+    // ---- 电池 ----
+    async function refreshBattery(attempt) {
+      attempt = attempt || 0;
+      const el = document.getElementById('batteryInfo');
+      let done = false;
+      try {
+        const b = await api.battery();
+        if (b && b.ok) {
+          el.textContent = '电量 ' + b.level + '%' + (b.charging ? ' · 充电中' : '');
+          done = true;
+        } else if (b && b.reason === 'wired_only') {
+          el.textContent = '无线模式无法读取';
+          done = true;
+        }
+      } catch (e) {}
+      // 启动瞬间预览线程可能正占着 HID 读缓冲，失败就隔 1.2 秒重试
+      if (!done) {
+        if (attempt < 2) setTimeout(function () { refreshBattery(attempt + 1); }, 1200);
+        else el.textContent = '读不到电量';
+      }
+    }
+    setTimeout(function () { refreshBattery(0); }, 1500);
+    setInterval(function () { refreshBattery(0); }, 600000);
+
+    // ---- 读取键盘当前灯效状态 ----
+    try {
+      const cur = await api.current_effect();
+      if (cur && cur.ok) {
+        const btn = document.querySelector('[data-fw="' + cur.mode + '"]');
+        const nm = btn ? btn.textContent.trim() : ('模式 ' + cur.mode);
+        document.getElementById('dev').textContent = 'VEGA108 · ' + nm;
+      } else {
+        document.getElementById('dev').textContent = 'VEGA108 · 已连接';
+      }
+      if (cur && cur.ok) {
+        document.querySelectorAll('[data-fw]').forEach(el => {
+          el.classList.toggle('active', parseInt(el.dataset.fw, 10) === cur.mode);
+        });
+        document.querySelectorAll('input[name="cm"]').forEach(el => {
+          el.checked = (parseInt(el.value, 10) === cur.colorMode);
+        });
+        document.querySelectorAll('.dirbtn').forEach(el => {
+          const v = (cur.direction === 3) ? 1 : 0;
+          el.classList.toggle('active', parseInt(el.dataset.dir, 10) === v);
+        });
+        const hex = '#' + cur.color.map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+        applyHex(hex, { silent: true });
+        const brEl = document.getElementById('brightness');
+        const spEl = document.getElementById('speed');
+        if (brEl && cur.brightness >= 0 && cur.brightness <= 6) {
+          brEl.value = cur.brightness;
+          const bv = document.getElementById('brightnessVal');
+          if (bv) bv.textContent = cur.brightness;
+        }
+        if (spEl && cur.speed >= 0 && cur.speed <= 6) {
+          spEl.value = cur.speed;
+          const sv = document.getElementById('speedVal');
+          if (sv) sv.textContent = cur.speed;
+        }
+      }
+    } catch (e) { console.error('current_effect failed', e); }
+
+    // ---- 实时灯效预览（Canvas 渲染 + 颜色插值）----
+    const pvDbg = document.getElementById('pvDbg');
+    const dbg = (t) => { try { console.log('[dbg]', t); } catch (e) {} };
+    const pvCanvas = document.getElementById('preview');
+    let pvCtx = null;
+    try { pvCtx = pvCanvas ? pvCanvas.getContext('2d') : null; } catch (err) { dbg('ctx err: ' + err); }
+    const PV_SCALE = 2;   // 位图 2 倍超采样，浏览器放大窗口也不糊
+    const PV_PAD = 16 * PV_SCALE;
+    const pvWrapW = (pvCanvas.parentElement && pvCanvas.parentElement.clientWidth) || 900;
+    const PVU = Math.max(18 * PV_SCALE, Math.min(80 * PV_SCALE, Math.floor((pvWrapW - PV_PAD * 2) / 22.5) * PV_SCALE));
+    const PV_KEYS = 128;
+    let pvKeys = [];
+    const pvCur = new Float32Array(PV_KEYS * 3);
+    const pvTarget = new Float32Array(PV_KEYS * 3);
+    let pvReady = false;
+    let pvKeySet = new Set();
+
+    try {
+      const layout = window.__st.layout;
+      for (const row of layout.rows) for (const k of row) {
+        pvKeys.push({ led: k.value, name: k.name, x: PV_PAD + k.x * PVU, y: PV_PAD + k.y * PVU,
+                      w: Math.max(2, k.w * PVU - 4), h: Math.max(2, k.h * PVU - 4) });
+      }
+      pvKeySet = new Set(pvKeys.map(function (k) { return k.led; }));
+      pvCanvas.width = Math.ceil(22.5 * PVU + PV_PAD * 2);
+      pvCanvas.height = Math.ceil(6 * PVU + PV_PAD * 2);
+      pvCanvas.style.width = '100%';
+      pvCanvas.style.height = 'auto';
+      pvCanvas.style.imageRendering = 'auto';
+      pvReady = true;
+    } catch (e) { console.error('preview layout failed', e); dbg('layout fail: ' + e); }
+
+    let realtimeOn = true;
+    document.getElementById('rtToggle').addEventListener('change', async function (e) {
+      if (connPage === '0xff60') {   // 无线通道不允许开实时读取
+        e.target.checked = false;
+        realtimeOn = false;
+        return;
+      }
+      realtimeOn = e.target.checked;
+      try { await api.set_realtime(realtimeOn); } catch (err) {}
+      if (!realtimeOn) {
+        for (let i = 0; i < pvTarget.length; i++) pvTarget[i] = 0;
+        dbg('实时读取已关闭');
+      }
+    });
+
+    async function pullColors() {
+      if (!realtimeOn) {
+        dbg('实时读取已关闭');
+        return;
+      }
+      try {
+        const r = await api.led_colors();
+        if (r && r.reason === 'wired_only') {
+          dbg('无线模式无法读取实时灯色');
+          return;
+        }
+        if (r && !r.ok) {
+          dbg('读取失败');
+          return;
+        }
+        if (r && r.ok && r.colors) {
+          const cols = r.colors.map(function (c) { return [c[0], c[1], c[2]]; });
+          let litCount = 0, sr = 0, sg = 0, sb = 0;
+          for (let i = 0; i < cols.length && i < PV_KEYS; i++) {
+            if (cols[i][0] + cols[i][1] + cols[i][2] > 6) {
+              litCount++; sr += cols[i][0]; sg += cols[i][1]; sb += cols[i][2];
+            }
+          }
+          // 设备不回读的少数灯（Esc 等）用亮灯平均色补上；不能对所有零值键补，
+          // 否则涟漪扩散这类「大部分键还没亮」的效果会被整块刷成平均色。
+          if (litCount > 0) {
+            const NO_READBACK = [0, 97, 98, 101];
+            const ar = Math.round(sr / litCount), ag = Math.round(sg / litCount), ab = Math.round(sb / litCount);
+            for (let k = 0; k < NO_READBACK.length; k++) {
+              const i = NO_READBACK[k];
+              if (i < PV_KEYS && pvKeySet.has(i) && cols[i][0] + cols[i][1] + cols[i][2] <= 6) {
+                cols[i] = [ar, ag, ab];
+              }
+            }
+          }
+          dbg((musicOn ? '本地渲染' : '实时读取') + ' · 亮灯 ' + litCount);
+          for (let i = 0; i < cols.length && i < PV_KEYS; i++) {
+            pvTarget[i * 3] = cols[i][0];
+            pvTarget[i * 3 + 1] = cols[i][1];
+            pvTarget[i * 3 + 2] = cols[i][2];
+          }
+        }
+      } catch (e) {}
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    const KEY_LABEL = {
+      'Spacebar': 'Space', 'Backspace': 'Bksp', 'Back': 'Bksp', 'Enter': 'Ent',
+      'L-Shift': 'Shift', 'R-Shift': 'Shift', 'L-Ctrl': 'Ctrl', 'R-Ctrl': 'Ctrl',
+      'L-Win': 'Win', 'R-Win': 'Win', 'L-Alt': 'Alt', 'R-Alt': 'Alt',
+      'Super': 'Win', 'Print': 'PRT', 'Scroll': 'SCR', 'Pause': 'PAU', 'Num Lock': 'MUM',
+      '音量+': '🔊', '音量-': '🔉', '静音': '🔇', '计算器': '🧮',
+      'Insert': 'Ins', 'Delete': 'Del', 'PageUp': 'PgUp', 'PageDown': 'PgDn'
+    };
+    function labelOf(name) {
+      if (KEY_LABEL[name]) return KEY_LABEL[name];
+      return String(name).replace(/^L-|^R-/, '').replace(/^Num /, '');
+    }
+
+    function drawPreview() {
+      if (!pvReady) return;
+      for (let i = 0; i < pvCur.length; i++) {
+        const t = pvTarget[i];
+        const rate = (t < pvCur[i]) ? 0.75 : 0.55;
+        pvCur[i] += (t - pvCur[i]) * rate;
+        if (pvCur[i] < 3) pvCur[i] = 0;
+      }
+      // 底板（半透明，透出玻璃卡的底色）
+      pvCtx.clearRect(0, 0, pvCanvas.width, pvCanvas.height);
+      pvCtx.fillStyle = 'rgba(222,230,242,0.42)';
+      pvCtx.fillRect(0, 0, pvCanvas.width, pvCanvas.height);
+
+      for (const k of pvKeys) {
+        // 键帽底（深色，配白字才看得清）
+        pvCtx.fillStyle = '#2b3242';
+        roundRect(pvCtx, k.x + 0.5, k.y + 0.5, k.w, k.h, 4 * PV_SCALE);
+        pvCtx.fill();
+        // 高光（上边）
+        pvCtx.fillStyle = 'rgba(255,255,255,0.09)';
+        roundRect(pvCtx, k.x + 1, k.y + 1, k.w - 1, Math.min(2 * PV_SCALE, k.h * 0.3), 2 * PV_SCALE);
+        pvCtx.fill();
+        // 底部投影
+        pvCtx.fillStyle = 'rgba(0,0,0,0.35)';
+        roundRect(pvCtx, k.x + 1, k.y + k.h - 2 * PV_SCALE, k.w - 1, 2 * PV_SCALE, 2 * PV_SCALE);
+        pvCtx.fill();
+
+        // 灯光叠加
+        const b = k.led * 3;
+        const cr = pvCur[b] | 0, cg = pvCur[b + 1] | 0, cb = pvCur[b + 2] | 0;
+        const lit = (cr + cg + cb) > 40;
+        if (lit) {
+          pvCtx.save();
+          pvCtx.globalAlpha = 0.92;
+          pvCtx.fillStyle = 'rgb(' + cr + ',' + cg + ',' + cb + ')';
+          roundRect(pvCtx, k.x + 0.5, k.y + 0.5, k.w, k.h, 4 * PV_SCALE);
+          pvCtx.fill();
+          pvCtx.restore();
+        }
+        // 键名（白字，放大一点）
+        if (k.w > 12 && k.h > 10) {
+          const label = labelOf(k.name || '').slice(0, 6);
+          const fs = Math.max(7 * PV_SCALE, Math.min(12 * PV_SCALE, Math.floor(k.w * 0.34), Math.floor(k.h * 0.55)));
+          pvCtx.font = '600 ' + fs + 'px "Noto Sans SC", "Microsoft YaHei", sans-serif';
+          pvCtx.textAlign = 'center';
+          pvCtx.textBaseline = 'middle';
+          pvCtx.fillStyle = lit ? 'rgba(255,255,255,0.96)' : '#eef2f8';
+          const cx = k.x + k.w / 2, cy = k.y + k.h / 2;
+          if (lit) {   // 亮色底上给白字描一圈深色边，避免看不清
+            pvCtx.strokeStyle = 'rgba(0,0,0,0.42)';
+            pvCtx.lineWidth = Math.max(1, fs * 0.16);
+            pvCtx.lineJoin = 'round';
+            pvCtx.strokeText(label, cx, cy);
+          }
+          pvCtx.fillText(label, cx, cy);
+        }
+      }
+      requestAnimationFrame(drawPreview);
+    }
+
+    api.preview_start().catch(function () {});
+    pullColors();
+    setInterval(pullColors, 33);   // 前端拉取 30fps
+    requestAnimationFrame(drawPreview);
+
+    // ---- 关闭启动动画（至少显示 2 秒）----    const splash = document.getElementById('splash');
+    if (splash) {
+      const wait = Math.max(0, 2000 - (Date.now() - splashStart));
+      setTimeout(() => {
+        splash.classList.add('hide');
+        setTimeout(() => splash.remove(), 700);
+      }, wait);
+    }
+  });
+})();
+</script>
+<script>
+// 启动动画：数学曲线（玫瑰线 7 花瓣 + 粒子拖尾）
+(function () {
+  const svg = document.getElementById('thinking-indicator');
+  if (!svg) return;
+  const group = document.getElementById('rotating-group');
+  const bgPath = document.getElementById('background-path');
+  const NS = 'http://www.w3.org/2000/svg';
+  const PARTICLES = 64, R = 7, PETALS = 7, DETAIL = 3, SCALE = 3.9, TRAIL = 0.38;
+  const ROT_MS = 28000, PULSE_MS = 4200, DUR_MS = 4600;
+
+  const norm = p => ((p % 1) + 1) % 1;
+
+  function point(progress, detailScale) {
+    const t = norm(progress) * Math.PI * 2;
+    const x = R * Math.cos(t) - DETAIL * detailScale * Math.cos(PETALS * t);
+    const y = R * Math.sin(t) - DETAIL * detailScale * Math.sin(PETALS * t);
+    return { x: 50 + x * SCALE, y: 50 + y * SCALE };
+  }
+
+  function buildPath(ds, steps = 360) {
+    let d = '';
+    for (let i = 0; i <= steps; i++) {
+      const p = point(i / steps, ds);
+      d += (i === 0 ? 'M ' : 'L ') + p.x.toFixed(2) + ' ' + p.y.toFixed(2) + ' ';
+    }
+    return d;
+  }
+
+  function detailScale(time) {
+    const pp = (time % PULSE_MS) / PULSE_MS;
+    return 0.5 + ((Math.sin(pp * Math.PI * 2 + 0.55) + 1) / 2) * 0.45;
+  }
+
+  const nodes = [];
+  for (let i = 0; i < PARTICLES; i++) {
+    const c = document.createElementNS(NS, 'circle');
+    c.setAttribute('fill', 'currentColor');
+    group.appendChild(c);
+    nodes.push(c);
+  }
+
+  const t0 = performance.now();
+
+  function frame(now) {
+    if (!document.getElementById('thinking-indicator')) return;
+    const time = now - t0;
+    const progress = (time % DUR_MS) / DUR_MS;
+    const ds = detailScale(time);
+    const rot = -((time % ROT_MS) / ROT_MS) * 360;
+
+    group.setAttribute('transform', 'rotate(' + rot.toFixed(2) + ' 50 50)');
+    bgPath.setAttribute('d', buildPath(ds));
+
+    for (let i = 0; i < PARTICLES; i++) {
+      const tail = i / (PARTICLES - 1);
+      const p = point(progress - tail * TRAIL, ds);
+      const fade = Math.pow(1 - tail, 0.58);
+      const n = nodes[i];
+      n.setAttribute('cx', p.x.toFixed(2));
+      n.setAttribute('cy', p.y.toFixed(2));
+      n.setAttribute('r', (1.05 + fade * 2.75).toFixed(2));
+      n.setAttribute('opacity', (0.08 + fade * 0.92).toFixed(3));
+    }
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
