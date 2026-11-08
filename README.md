@@ -19,6 +19,10 @@ WEIKAV VEGA108 键盘灯效工具。有线 / 2.4G 无线都能用，支持实时
 - **开机自启**：默认开启，托盘菜单里可随时关闭
 - **收进托盘时自动停掉实时读取**，窗口回来再恢复
 
+## 下载
+
+不想装 Python 的，直接下 [Release 里的 DMLit.exe](https://gitee.com/Anran512/dmlit/releases/latest)，双击即可运行。
+
 ## 环境要求
 
 - Windows 10 / 11
