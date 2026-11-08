@@ -2,3 +2,4 @@ pywebview>=4.0
 hidapi>=0.14
 soundcard>=0.4.3
 numpy>=1.24
+pystray>=0.19

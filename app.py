@@ -29,6 +29,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LAYOUT_PATH = os.path.join(HERE, "vega108_layout.json")
 import json as _json
 import json
+import sys
+import winreg
 try:
     LAYOUT = _json.load(open(LAYOUT_PATH, encoding="utf-8"))
 except Exception:
@@ -1076,14 +1078,133 @@ class Api:
         return {'ok': True}
 
 
+AUTOSTART_KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
+AUTOSTART_NAME = 'DMLit'
+
+
+def autostart_command():
+    """开机启动要执行的命令行（源码运行 / 打包 exe 都兼容）"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, 'frozen', False):
+        return '"%s"' % sys.executable
+    return '"%s" "%s"' % (sys.executable, os.path.join(here, 'app.py'))
+
+
+def autostart_enabled():
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, AUTOSTART_KEY) as k:
+            winreg.QueryValueEx(k, AUTOSTART_NAME)
+            return True
+    except Exception:
+        return False
+
+
+def set_autostart(enable):
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, AUTOSTART_KEY, 0, winreg.KEY_SET_VALUE) as k:
+            if enable:
+                winreg.SetValueEx(k, AUTOSTART_NAME, 0, winreg.REG_SZ, autostart_command())
+            else:
+                try:
+                    winreg.DeleteValue(k, AUTOSTART_NAME)
+                except FileNotFoundError:
+                    pass
+        return True
+    except Exception:
+        return False
+
+
+def tray_image():
+    """托盘图标：优先用 splash.png 缩一个 64px 的圆图标"""
+    from PIL import Image
+    here = os.path.dirname(os.path.abspath(__file__))
+    for name in ('splash.png', 'splash.jpg'):
+        path = os.path.join(here, name)
+        if os.path.exists(path):
+            try:
+                im = Image.open(path).convert('RGBA')
+                im.thumbnail((64, 64), Image.LANCZOS)
+                return im
+            except Exception:
+                pass
+    return Image.new('RGBA', (64, 64), (43, 92, 255, 255))
+
+
 def main():
     api = Api()
     here = os.path.dirname(os.path.abspath(__file__))
-    webview.create_window(
+    window = webview.create_window(
         'DMLit · VEGA108',
         os.path.join(here, 'index.html'),
         js_api=api, width=1112, height=948, min_size=(1112, 948), background_color='#f4f6f9',
     )
+
+    quitting = {'value': False}
+    hidden_state = {'realtime': True}
+
+    def do_show(*_):
+        try:
+            window.show()
+            window.restore()
+        except Exception:
+            pass
+        # 窗口回来了，恢复隐藏前的实时读取状态
+        try:
+            api.set_realtime(hidden_state['realtime'])
+        except Exception:
+            pass
+
+    def do_quit(*_):
+        quitting['value'] = True
+        try:
+            icon.stop()
+        except Exception:
+            pass
+        try:
+            window.destroy()
+        except Exception:
+            pass
+        os._exit(0)
+
+    def toggle_autostart(*_):
+        set_autostart(not autostart_enabled())
+
+    # 关闭窗口 = 收进托盘，不退出（退出走托盘菜单）
+    def on_closing():
+        if quitting['value']:
+            return True
+        # 收进托盘时停掉实时读取（省键盘带宽/CPU），窗口回来再恢复
+        try:
+            hidden_state['realtime'] = api.realtime
+            api.set_realtime(False)
+        except Exception:
+            pass
+        try:
+            window.hide()
+        except Exception:
+            pass
+        return False
+
+    try:
+        window.events.closing += on_closing
+    except Exception:
+        pass
+
+    # 默认开启开机自启（用户选择）
+    if not autostart_enabled():
+        set_autostart(True)
+
+    import pystray
+    menu = pystray.Menu(
+        pystray.MenuItem('显示主窗口', do_show, default=True),
+        pystray.MenuItem('开机自启', toggle_autostart,
+                         checked=lambda item: autostart_enabled()),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem('退出 DMLit', do_quit),
+    )
+    icon = pystray.Icon('DMLit', tray_image(), 'DMLit · VEGA108', menu)
+    threading.Thread(target=icon.run, daemon=True).start()
+
     webview.start()
 
 
