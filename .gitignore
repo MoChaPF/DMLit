@@ -9,10 +9,11 @@ state.json
 run_*.log
 *.log
 
-# 打包
+# 打包（exe 走 Release 附件，不进仓库）
 build/
 dist/
 *.spec
+*.exe
 
 # 虚拟环境
 .venv/
