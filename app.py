@@ -109,6 +109,8 @@ class Keyboard:
         self.last_chunks = {}
         self.rr = 0
         self.last_pixels = None
+        self.reads = 0
+        self.writes = 0
 
     def open(self):
         for page in PAGES:
@@ -162,6 +164,7 @@ class Keyboard:
                     kernel32.CloseHandle(ev)
                     return None
             kernel32.CloseHandle(ev)
+            self.reads += 1
             return bytes(inbuf[:n.value]) if n.value else None
         # 回退：没有异步句柄时用同步读（可能阻塞）
         inbuf = (ctypes.c_ubyte * 65)()
@@ -186,6 +189,7 @@ class Keyboard:
         buf = (ctypes.c_ubyte * 65).from_buffer_copy(bytes(p))
         n = wintypes.DWORD(0)
         kernel32.WriteFile(ctypes.c_void_p(self.h), ctypes.byref(buf), 65, ctypes.byref(n), None)
+        self.writes += 1
         if read:
             inbuf = (ctypes.c_ubyte * 65)()
             n = wintypes.DWORD(0)
@@ -212,6 +216,7 @@ class Keyboard:
         buf = (ctypes.c_ubyte * 65).from_buffer_copy(bytes(p))
         n = wintypes.DWORD(0)
         kernel32.WriteFile(ctypes.c_void_p(self.h), ctypes.byref(buf), 65, ctypes.byref(n), None)
+        self.writes += 1
 
     def _read_match(self, cmd, addr=None, tries=4, timeout=800):
         """读包直到拿到指定命令（可选校验地址）的响应。
@@ -400,7 +405,7 @@ class EffectEngine:
         self.kb.set_mode(128, self.brightness, self.speed)
         if not self.running:
             self.running = True
-            self.thread = threading.Thread(target=self._loop, daemon=True)
+            self.thread = threading.Thread(target=self._loop, daemon=True, name='fx-engine')
             self.thread.start()
 
     def stop(self):
@@ -465,7 +470,7 @@ class PreviewThread:
         if self.running:
             return
         self.running = True
-        self.thread = threading.Thread(target=self._loop, daemon=True)
+        self.thread = threading.Thread(target=self._loop, daemon=True, name='preview')
         self.thread.start()
 
     def stop(self):
@@ -509,7 +514,7 @@ class MusicEngine:
         if self.running:
             return
         self.running = True
-        self.thread = threading.Thread(target=self._loop, daemon=True)
+        self.thread = threading.Thread(target=self._loop, daemon=True, name='music-engine')
         self.thread.start()
 
     def stop(self):
@@ -652,7 +657,7 @@ class KeyListener:
         if self.running:
             return
         self.running = True
-        self.thread = threading.Thread(target=self._loop, daemon=True)
+        self.thread = threading.Thread(target=self._loop, daemon=True, name='key-listen')
         self.thread.start()
 
     def stop(self):
@@ -705,7 +710,7 @@ class RippleEngine:
     def start(self):
         if not self.running:
             self.running = True
-            self.thread = threading.Thread(target=self._loop, daemon=True)
+            self.thread = threading.Thread(target=self._loop, daemon=True, name='ripple')
             self.thread.start()
 
     def stop(self):
@@ -747,6 +752,7 @@ class Api:
         self.music_prev = None
         self.realtime = True
         self.paint_colors = {}
+        self.key_cache = {}
         self.color_mode = 1
         self.direction = 3
         self._batt_level = None
@@ -759,7 +765,7 @@ class Api:
                 self.battery()
             except Exception:
                 pass
-        threading.Thread(target=_bg_battery, daemon=True).start()
+        threading.Thread(target=_bg_battery, daemon=True, name='battery').start()
 
     # ---------- 记住退出时的选择，下次启动强制恢复 ----------
     def _save_state(self):
@@ -808,7 +814,7 @@ class Api:
         if getattr(self, '_dragging', False):
             return {'ok': True}
         self._dragging = True
-        threading.Thread(target=self._drag_loop, daemon=True).start()
+        threading.Thread(target=self._drag_loop, daemon=True, name='win-drag').start()
         return {'ok': True}
 
     def drag_stop(self):
@@ -1121,6 +1127,102 @@ class Api:
             print('BATTERY err:', repr(e), flush=True)
             return {'ok': False}
 
+    def metrics(self):
+        """性能面板：进程 CPU/内存 + 各线程 CPU 占用（两次采样算增量）"""
+        try:
+            import psutil
+        except Exception:
+            return {'ok': False, 'reason': 'no_psutil'}
+        try:
+            p = psutil.Process()
+            now = time.time()
+            ct = p.cpu_times()
+            proc_cpu = ct.user + ct.system
+            mem = p.memory_info()
+            thr = {t.id: (t.user_time, t.system_time) for t in p.threads()}
+            names = {t.ident: t.name for t in threading.enumerate() if t.ident}
+            prev = getattr(self, '_metrics_prev', None)
+            dt = (now - prev['t']) if prev else 0.0
+            rows = []
+            for tid, (u, s_) in thr.items():
+                total = u + s_
+                pct = 0.0
+                if prev and tid in prev['thr'] and dt > 0:
+                    pu, ps_ = prev['thr'][tid]
+                    pct = ((total - (pu + ps_)) / dt) * 100.0
+                rows.append({'id': tid, 'name': names.get(tid, 'os'), 'cpu': round(pct, 1), 'total': round(total, 2)})
+            proc_pct = 0.0
+            if prev and dt > 0:
+                proc_pct = ((proc_cpu - prev['cpu']) / dt) * 100.0
+            self._metrics_prev = {'t': now, 'cpu': proc_cpu, 'thr': thr}
+            rows.sort(key=lambda r: -r['cpu'])
+            return {
+                'ok': True,
+                'cpu': round(proc_pct, 1),
+                'mem': round(mem.rss / 1048576.0, 1),
+                'threads': rows[:12],
+                'py_threads': len(threading.enumerate()),
+                'sys_threads': len(thr),
+                'hid': {'reads': getattr(self.kb, 'reads', 0), 'writes': getattr(self.kb, 'writes', 0)},
+            }
+        except Exception as e:
+            return {'ok': False, 'error': repr(e)}
+
+    def remap_read_all(self):
+        """逐键读回当前键值（108 次往返，比较慢）"""
+        if self.kb.page != 0xFF68:
+            return {'ok': False, 'reason': 'wired_only'}
+        out = {}
+        try:
+            with self.kb.io_lock:
+                for row in LAYOUT.get('rows', []):
+                    for k in row:
+                        led = k.get('value')
+                        if led is None:
+                            continue
+                        d = self._read_key_raw(int(led))
+                        if d:
+                            out[str(led)] = d
+            self.key_cache = out
+            return {'ok': True, 'keys': out, 'count': len(out)}
+        except Exception as e:
+            return {'ok': False, 'error': repr(e)}
+
+    def _read_key_raw(self, led, timeout=1.2):
+        """GET_KEY(18)：自定义帧头 AA 12 04 addrLo addrHi，响应取 r[8..11]"""
+        self.kb._write(18, 4, led * 4, b'')
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            r = self.kb._read_packet(400)
+            if not r:
+                continue
+            base = 0 if r[0] == 0x55 else 1
+            if len(r) > base + 11 and r[base + 1] == 18:
+                return list(r[base + 8:base + 12])
+        return None
+
+    def remap_set(self, led, page, p1, p2, p3):
+        """SET_KEY(34)：改一个键后全量写回 512 字节"""
+        if not self.key_cache:
+            return {'ok': False, 'reason': 'no_cache'}
+        try:
+            led = int(led)
+            self.key_cache[str(led)] = [int(page) & 0xFF, int(p1) & 0xFF,
+                                        int(p2) & 0xFF, int(p3) & 0xFF]
+            buf = bytearray(512)
+            for k, v in self.key_cache.items():
+                idx = int(k) * 4
+                if 0 <= idx <= 508:
+                    buf[idx:idx + 4] = bytes(v[:4])
+            with self.kb.io_lock:
+                for addr in range(0, 512, 56):
+                    part = bytes(buf[addr:addr + 56])
+                    self.kb._write(34, len(part), addr, part)
+                    time.sleep(0.02)
+            return {'ok': True}
+        except Exception as e:
+            return {'ok': False, 'error': repr(e)}
+
     def paint(self, colors):
         """画板：colors = {"LED编号": [r,g,b], ...}，按当前亮度缩放"""
         self.paint_colors = dict(colors or {})
@@ -1343,7 +1445,7 @@ def main():
         pystray.MenuItem('退出 DMLit', do_quit),
     )
     icon = pystray.Icon('DMLit', tray_image(), 'DMLit · VEGA108', menu)
-    threading.Thread(target=icon.run, daemon=True).start()
+    threading.Thread(target=icon.run, daemon=True, name='tray').start()
 
     webview.start()
 

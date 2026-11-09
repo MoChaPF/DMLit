@@ -31,6 +31,11 @@ body {
   margin: 0; font-family: "Segoe UI", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
   color: var(--text);
   background:
+    radial-gradient(circle 130px at 13% 16%, rgba(255,92,58,.55), transparent 72%),
+    radial-gradient(circle 100px at 84% 24%, rgba(38,118,255,.55), transparent 72%),
+    radial-gradient(circle 150px at 69% 84%, rgba(26,214,138,.50), transparent 72%),
+    radial-gradient(circle 110px at 27% 79%, rgba(186,74,255,.52), transparent 72%),
+    radial-gradient(circle 90px at 48% 30%, rgba(255,196,0,.45), transparent 72%),
     radial-gradient(900px 620px at 6% -14%, rgba(88,150,255,.72), transparent 62%),
     radial-gradient(820px 560px at 98% -6%, rgba(255,120,190,.60), transparent 58%),
     radial-gradient(760px 640px at 52% 114%, rgba(70,225,205,.50), transparent 62%),
@@ -95,6 +100,8 @@ main { max-width: 1160px; width: 100%; padding: 16px 22px 36px; margin: 0 auto; 
 
 /* ---------- 玻璃卡片 ---------- */
 .preview-card {
+  position: relative;
+  overflow: hidden;
   background: rgba(255,255,255,.38);
   -webkit-backdrop-filter: blur(24px) saturate(185%);
   backdrop-filter: blur(24px) saturate(185%);
@@ -122,8 +129,8 @@ main { max-width: 1160px; width: 100%; padding: 16px 22px 36px; margin: 0 auto; 
 canvas#preview { display: block; width: 100%; height: auto; }
 .preview-bar { display: flex; align-items: center; gap: 12px; margin-top: 10px; min-height: 32px; }
 .pv-status { color: var(--text-dim); font-size: 14px; }
-.rt-warn { margin-left: auto; font-size: 12.5px; color: var(--text-dim); opacity: .85; white-space: nowrap; }
-.rt-toggle { display: flex; align-items: center; gap: 7px; margin-left: 16px; cursor: pointer; font-size: 13px; color: var(--text-dim); user-select: none; }
+.rt-warn { margin-left: auto; font-size: 12px; color: var(--text-dim); opacity: .85; white-space: normal; line-height: 1.45; max-width: 430px; text-align: left; }
+.rt-toggle { display: flex; align-items: center; gap: 7px; margin-left: 16px; cursor: pointer; font-size: 13px; color: var(--text-dim); user-select: none; flex-shrink: 0; }
 .rt-toggle input { display: none; }
 .rt-track { width: 38px; height: 22px; border-radius: 11px; background: #d3d8e2; position: relative; transition: .2s; flex: 0 0 auto; }
 .rt-track::after { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
@@ -143,8 +150,100 @@ canvas#preview { display: block; width: 100%; height: auto; }
 .panels {
   display: grid; grid-template-columns: minmax(0,1fr) 268px 252px;
   gap: 14px; margin-top: 14px; align-items: stretch;
+  position: relative;
 }
+
+/* ---------- 改键 ---------- */
+.preview-tools { display: flex; align-items: center; gap: 10px; padding: 0 6px 9px; }
+
+.remap-btn {
+  background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.88);
+  border-radius: 12px; padding: 6px 15px; font-size: 13px; color: #3d4557;
+  cursor: pointer; transition: .18s; font-family: inherit;
+}
+.remap-btn:hover { color: var(--accent); border-color: rgba(43,92,255,.45); }
+.remap-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.panels .card { transition: opacity .34s ease, filter .34s ease, transform .34s ease; }
+.panels .card.blur-out { opacity: 0; filter: blur(10px); transform: scale(.985); pointer-events: none; }
+
+.remap-panel {
+  position: absolute; inset: 0; z-index: 6;
+  background: rgba(255,255,255,.42);
+  -webkit-backdrop-filter: blur(22px) saturate(185%);
+  backdrop-filter: blur(22px) saturate(185%);
+  border: 1px solid rgba(255,255,255,.68);
+  border-radius: 30px; padding: 15px 18px 14px;
+  box-shadow: 0 24px 46px -26px rgba(31,45,80,.46), inset 0 1px 0 rgba(255,255,255,.8);
+  opacity: 0; filter: blur(8px); transform: scale(.985); pointer-events: none;
+  visibility: hidden;
+  transition: opacity .34s ease, filter .34s ease, transform .34s ease, visibility 0s linear .34s;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.remap-panel.show {
+  opacity: 1; filter: none; transform: none; pointer-events: auto;
+  visibility: visible;
+  transition: opacity .34s ease, filter .34s ease, transform .34s ease, visibility 0s;
+}
+.remap-head { display: flex; align-items: center; gap: 12px; }
+.remap-title { font-size: 14px; font-weight: 650; color: #2b3244; }
+.remap-cur { font-size: 13.5px; color: var(--text-dim); }
+.remap-head .spacer { flex: 1; }
+.remap-body { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.remap-tabs { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+.remap-tab {
+  padding: 6px 14px; border-radius: 10px; font-size: 13px; color: #3d4557;
+  cursor: pointer; background: rgba(255,255,255,.5); border: 1px solid transparent;
+  transition: .15s; text-align: center;
+}
+.remap-tab:hover { color: var(--accent); }
+.remap-tab.on { background: var(--accent); color: #fff; }
+.remap-scroll { flex: 1; min-width: 0; overflow-y: auto; max-height: 138px; padding-right: 4px; }
+.remap-grid { display: grid; grid-template-columns: repeat(10, minmax(0,1fr)); gap: 6px; align-content: start; }
+.remap-key {
+  padding: 7px 4px; border-radius: 10px; background: rgba(255,255,255,.62);
+  border: 1px solid rgba(255,255,255,.9); font-size: 12.5px; color: #3d4557;
+  text-align: center; cursor: pointer; transition: .14s; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.remap-key:hover { border-color: rgba(43,92,255,.5); color: var(--accent); }
+.remap-key.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.remap-key.cur { box-shadow: 0 0 0 2px rgba(43,92,255,.35) inset; }
+.remap-foot { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-dim); min-height: 20px; }
+
+/* ---------- 性能监控面板 ---------- */
+.perf-fab {
+  position: fixed; right: 16px; bottom: 16px; z-index: 60;
+  background: rgba(255,255,255,.72); border: 1px solid rgba(255,255,255,.9);
+  border-radius: 12px; padding: 5px 13px; font-size: 12.5px; color: #3d4557;
+  cursor: pointer; font-family: inherit; transition: .18s;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.perf-fab:hover { color: var(--accent); border-color: rgba(43,92,255,.45); }
+.perf-panel {
+  position: fixed; right: 16px; bottom: 58px; z-index: 61; width: 340px;
+  background: rgba(255,255,255,.74);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255,255,255,.9); border-radius: 18px;
+  padding: 12px 14px 10px; display: none;
+  box-shadow: 0 22px 48px -22px rgba(31,45,80,.5), inset 0 1px 0 rgba(255,255,255,.8);
+  font-size: 12.5px; color: #3d4557;
+}
+.perf-panel.show { display: block; }
+.perf-head { display: flex; align-items: center; margin-bottom: 8px; }
+.perf-title { font-weight: 650; color: #2b3244; font-size: 13px; }
+.perf-head .spacer { flex: 1; }
+.perf-x { cursor: pointer; color: var(--text-dim); font-size: 15px; line-height: 1; padding: 2px 4px; }
+.perf-x:hover { color: var(--accent); }
+.perf-sum { font-size: 12px; color: var(--text-mid); margin-bottom: 8px; line-height: 1.7; }
+.perf-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+.perf-name { width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-mid); }
+.perf-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(120,140,170,.18); overflow: hidden; }
+.perf-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4aa8ff, #2b7cff); transition: width .3s; }
+.perf-val { width: 52px; text-align: right; font-variant-numeric: tabular-nums; color: #2b3244; }
 .card {
+  position: relative;
+  overflow: hidden;
   background: rgba(255,255,255,.38);
   -webkit-backdrop-filter: blur(22px) saturate(185%);
   backdrop-filter: blur(22px) saturate(185%);
@@ -153,7 +252,7 @@ canvas#preview { display: block; width: 100%; height: auto; }
   padding: 15px 16px 16px;
   box-shadow: 0 24px 46px -26px rgba(31,45,80,.46), inset 0 1px 0 rgba(255,255,255,.8);
 }
-.card.locked { opacity: .42; pointer-events: none; filter: saturate(.5); transition: opacity .2s; }
+.card.locked { opacity: .42; pointer-events: none; transition: opacity .22s ease; }
 .card-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 13px; }
 .card-title { font-size: 14px; font-weight: 650; color: #2b3244; letter-spacing: .2px; }
 .card-sub { font-size: 13.5px; color: var(--text-dim); }
@@ -390,6 +489,9 @@ setTimeout(function () {
 
 <main>
   <div class="preview-card">
+    <div class="preview-tools">
+      <button class="remap-btn" id="remapBtn">改键</button>
+    </div>
     <div class="canvas-wrap"><canvas id="preview" width="1200" height="320"></canvas></div>
     <div class="preview-bar">
       <div class="music-set">
@@ -404,7 +506,7 @@ setTimeout(function () {
         <input type="range" id="mgain" min="5" max="40" step="1" value="22">
         <span class="val" id="mgainVal">2.2</span>
       </div>
-      <span class="rt-warn">实时读取会占用键盘性能</span>
+      <span class="rt-warn">实时读取会占用大量 CPU 及键盘性能，请谨慎开启<br>软件在后台时实时读取会静默，不读取键盘颜色</span>
       <label class="rt-toggle">
         <input type="checkbox" id="rtToggle" checked>
         <span class="rt-track"></span>
@@ -499,6 +601,21 @@ setTimeout(function () {
       </div>
       <input type="color" id="color" value="#ff2828" style="display:none">
     </section>
+
+    <div class="remap-panel" id="remapPanel">
+      <div class="remap-head">
+        <span class="remap-title">改键</span>
+        <span class="remap-cur" id="remapCur">点键盘上的键选择</span>
+        <span class="spacer"></span>
+        <button class="remap-btn" id="remapReload">读取键值</button>
+        <button class="remap-btn" id="remapExit">退出改键</button>
+      </div>
+      <div class="remap-body">
+        <div class="remap-tabs" id="remapTabs"></div>
+        <div class="remap-scroll"><div class="remap-grid" id="remapGrid"></div></div>
+      </div>
+      <div class="remap-foot" id="remapFoot">选中键后点右侧键码即可改写，立即生效</div>
+    </div>
   </div>
 
   <p class="credit">本程序由 <b>抹茶泡芙</b> 和 <b>DSH大肥鱼</b> 共同完成，本程序开源。</p>
@@ -562,11 +679,14 @@ setTimeout(function () {
     var NO_SPEED_MODES = { 1:1, 2:1, 3:1 };
     var lastMode = -1;
 
-    function setCardsLocked(locked) {
-      ['speedCard', 'paletteCard'].forEach(function (id) {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle('locked', !!locked);
-      });
+    // 卡片禁用态统一计算：音乐律动锁速度+调色板；RGB 模式锁调色板
+    function refreshLockUI() {
+      var cmEl = document.querySelector('input[name="cm"]:checked');
+      var cm = cmEl ? parseInt(cmEl.value, 10) : 1;
+      var speedCard = document.getElementById('speedCard');
+      var paletteCard = document.getElementById('paletteCard');
+      if (speedCard) speedCard.classList.toggle('locked', !!musicOn);
+      if (paletteCard) paletteCard.classList.toggle('locked', !!musicOn || cm === 1);
     }
 
     // 按后端状态回填所有控件（启动、刷新连接、关音乐律动都用它）
@@ -617,15 +737,10 @@ setTimeout(function () {
     function fwIdOf(mode) { return (Number(mode) === 20) ? 128 : Number(mode); }
 
     function updateModeUI() {
-      var cmEl = document.querySelector('input[name="cm"]:checked');
-      var cm = cmEl ? parseInt(cmEl.value, 10) : 1;
-      var paletteCard = document.getElementById('paletteCard');
       var speedInput = document.getElementById('speed');
       var brInput = document.getElementById('brightness');
       var monoEl = document.querySelector('input[name="cm"][value="0"]');
-      if (paletteCard && !musicOn) {
-        paletteCard.classList.toggle('locked', cm === 1);
-      }
+      refreshLockUI();
       if (speedInput) {
         speedInput.disabled = !!NO_SPEED_MODES[lastMode];
       }
@@ -646,8 +761,9 @@ setTimeout(function () {
       if (musicOn) {
         musicOn = false;
         musicBtn.classList.remove('active');
+        // 只在真的关掉音乐律动时解锁；否则点灯效会把已禁用的调色板闪一下
+        refreshLockUI();
       }
-      setCardsLocked(false);
     }
 
     // 自定义（单键改色）模式下，速度和颜色模式没意义，灰掉；
@@ -993,20 +1109,26 @@ setTimeout(function () {
     var musicOn = false;   // 用 var：applyConnRestrictions 可能在声明前访问
     const musicBtn = document.getElementById('musicBtn');
     musicBtn.addEventListener('click', async () => {
-      musicOn = !musicOn;
-      musicBtn.classList.toggle('active', musicOn);
-      setCardsLocked(musicOn);
-      if (musicOn) {
+      var want = !musicOn;
+      if (want) {
+        musicOn = true;
+        musicBtn.classList.add('active');
+        refreshLockUI();
         document.querySelectorAll('#fwGrid .fx').forEach(x => x.classList.remove('active'));
         await api.music_start();
       } else {
+        // 等后端真正停掉再改 musicOn，否则等待期间轮询会提前解锁，遮罩闪一下
         await api.music_stop();
-        // 关掉后按后端保存的状态回填（无线下 syncFromKeyboard 读不到）
+        musicOn = false;
+        musicBtn.classList.remove('active');
         lastSyncKey = '';
         try {
           var st3 = await api.status();
+          refreshLockUI();
           applyUiFromStatus(st3);
-        } catch (e) {}
+        } catch (e) {
+          refreshLockUI();
+        }
       }
     });
 
@@ -1034,7 +1156,8 @@ setTimeout(function () {
         const cur = await api.current_effect();
         if (!cur || !cur.ok) return;
         const cols = cur.color || [0, 0, 0];
-        const key = [cur.mode, cols.join(','), cur.colorMode, cur.brightness, cur.speed, cur.direction].join('|');
+        // 不用读回的颜色做 key：RGB 类灯效每帧颜色都在变，会让色轮里的点乱跳
+        const key = [cur.mode, cur.colorMode, cur.brightness, cur.speed, cur.direction].join('|');
         if (key === lastSyncKey) return;      // 没变化就不动 UI，免得打架
         lastSyncKey = key;
         lastMode = cur.mode;
@@ -1280,10 +1403,287 @@ setTimeout(function () {
         var y = (e.clientY - rect.top) * (pvCanvas.height / rect.height);
         for (var i = 0; i < pvKeys.length; i++) {
           var k = pvKeys[i];
-          if (x >= k.x && x <= k.x + k.w && y >= k.y && y <= k.y + k.h) { pickKey(k); return; }
+          if (x >= k.x && x <= k.x + k.w && y >= k.y && y <= k.y + k.h) {
+            if (remapMode) pickRemapKey(k); else pickKey(k);
+            return;
+          }
         }
       });
     }
+
+    // ---- 改键 ----
+    var remapMode = false;
+    var remapSel = null;
+    var keyCache = {};
+    var remapCat = 'letter';
+
+    var HID_LETTER = [];
+    for (var hi = 0x04; hi <= 0x1D; hi++) HID_LETTER.push({ label: String.fromCharCode(65 + hi - 0x04), value: hi, page: 2 });
+    var HID_NUM = [];
+    for (var hn = 0x1E; hn <= 0x27; hn++) HID_NUM.push({ label: String(hn - 0x1D), value: hn, page: 2 });
+    var HID_SYM = [
+      ['-', 0x2D], ['=', 0x2E], ['[', 0x2F], [']', 0x30], ['\\', 0x31], [';', 0x33], ["'", 0x34],
+      ['`', 0x35], [',', 0x36], ['.', 0x37], ['/', 0x38]
+    ].map(function (x) { return { label: x[0], value: x[1], page: 2 }; });
+    var HID_FN = [];
+    for (var hf = 0x3A; hf <= 0x45; hf++) HID_FN.push({ label: 'F' + (hf - 0x39), value: hf, page: 2 });
+    HID_FN.push({ label: 'Print', value: 0x46, page: 2 }, { label: 'Scroll', value: 0x47, page: 2 }, { label: 'Pause', value: 0x48, page: 2 });
+    // 厂商自定义的 Fn 码，改坏了会把 Fn 组合一起废掉，放回来方便恢复
+    HID_FN.push({ label: 'Fn', value: 0xAF, page: 2 });
+    var HID_EDIT = [
+      ['Insert', 0x49], ['Home', 0x4A], ['PgUp', 0x4B], ['Del', 0x4C], ['End', 0x4D], ['PgDn', 0x4E],
+      ['←', 0x50], ['↑', 0x52], ['→', 0x4F], ['↓', 0x51],
+      ['Enter', 0x28], ['Tab', 0x2B], ['Space', 0x2C], ['Esc', 0x29], ['Backspace', 0x2A]
+    ].map(function (x) { return { label: x[0], value: x[1], page: 2 }; });
+    var HID_MOD = [
+      ['LCtrl', 0xE0], ['LShift', 0xE1], ['LAlt', 0xE2], ['LWin', 0xE3],
+      ['RCtrl', 0xE4], ['RShift', 0xE5], ['RAlt', 0xE6], ['RWin', 0xE7], ['Menu', 0x65]
+    ].map(function (x) { return { label: x[0], value: x[1], page: 2 }; });
+    var HID_LOCK = [
+      ['CapsLock', 0x39], ['NumLock', 0x53], ['ScrollLock', 0x47]
+    ].map(function (x) { return { label: x[0], value: x[1], page: 2 }; });
+    var HID_NUMPAD = [
+      ['NumLock', 0x53], ['Num/', 0x54], ['Num*', 0x55], ['Num-', 0x56], ['Num+', 0x57], ['NumEnt', 0x58],
+      ['Num1', 0x59], ['Num2', 0x5A], ['Num3', 0x5B], ['Num4', 0x5C], ['Num5', 0x5D], ['Num6', 0x5E],
+      ['Num7', 0x5F], ['Num8', 0x60], ['Num9', 0x61], ['Num0', 0x62], ['Num.', 0x63]
+    ].map(function (x) { return { label: x[0], value: x[1], page: 2 }; });
+    var HID_CONSUMER = [
+      ['音量+', 0xE9], ['音量-', 0xEA], ['静音', 0xE2], ['播放/暂停', 0xCD],
+      ['上一曲', 0xB6], ['下一曲', 0xB5], ['播放器', 0x183], ['计算器', 0x192],
+      ['搜索', 0x221], ['浏览器', 0x196], ['邮件', 0x18A], ['主页', 0x223]
+    ].map(function (x) { return { label: x[0], value: x[1], page: 3 }; });
+
+    var HID_MAC = [
+      ['Cmd', 0xE3, 2], ['Opt', 0xE2, 2], ['Ctrl', 0xE0, 2],
+      ['R-Cmd', 0xE7, 2], ['R-Opt', 0xE6, 2], ['R-Ctrl', 0xE4, 2],
+      ['亮度+', 0x6F, 3], ['亮度-', 0x70, 3],
+      ['Mission', 0x29C, 3], ['Launch', 0x29D, 3], ['Spot', 0x221, 3],
+      ['播放/暂停', 0xCD, 3], ['上一曲', 0xB6, 3], ['下一曲', 0xB5, 3]
+    ].map(function (x) { return { label: x[0], value: x[1], page: x[2] }; });
+
+    var REMAP_TABS = [
+      { id: 'letter', name: '字母', list: HID_LETTER },
+      { id: 'num', name: '数字', list: HID_NUM },
+      { id: 'sym', name: '符号', list: HID_SYM },
+      { id: 'fn', name: '功能键', list: HID_FN },
+      { id: 'edit', name: '编辑键', list: HID_EDIT },
+      { id: 'lock', name: '锁定键', list: HID_LOCK },
+      { id: 'mod', name: '修饰键', list: HID_MOD },
+      { id: 'numpad', name: '小键盘', list: HID_NUMPAD },
+      { id: 'consumer', name: '多媒体', list: HID_CONSUMER },
+      { id: 'mac', name: 'MAC', list: HID_MAC }
+    ];
+
+    var PAGE_NAME = { 0: '默认', 1: '鼠标', 2: '键盘', 3: '媒体', 4: '系统', 5: '扩展', 6: '宏', 7: '组合', 8: 'DKS', 9: 'ModTap', 10: 'Toggle', 11: 'SOCD', 12: 'RS', 13: '功能', 14: 'END', 15: 'MPT' };
+
+    function keyNameOf(d) {
+      if (!d) return '读取中';
+      var pt = d[0];
+      if (pt === 2) {
+        var v = d[2];
+        for (var i = 0; i < REMAP_TABS.length; i++) {
+          var list = REMAP_TABS[i].list;
+          for (var j = 0; j < list.length; j++) {
+            if (list[j].page === 2 && list[j].value === v) return list[j].label;
+          }
+        }
+        return '键盘 0x' + ('0' + v.toString(16)).slice(-2);
+      }
+      if (pt === 3) {
+        var cv = d[1] | (d[2] << 8);
+        for (var k = 0; k < HID_CONSUMER.length; k++) if (HID_CONSUMER[k].value === cv) return HID_CONSUMER[k].label;
+        return '媒体 0x' + cv.toString(16);
+      }
+      return PAGE_NAME[pt] || ('页面 ' + pt);
+    }
+
+    function setRemapFoot(t) {
+      var el = document.getElementById('remapFoot');
+      if (el) el.textContent = t;
+    }
+    function remapCurText() {
+      var el = document.getElementById('remapCur');
+      if (!el) return;
+      if (remapSel === null) { el.textContent = '点键盘上的键选择'; return; }
+      var k = keyByLed(remapSel);
+      el.textContent = (k ? labelOf(k.name || '') : ('LED ' + remapSel)) + ' · 当前 ' + keyNameOf(keyCache[String(remapSel)]);
+    }
+    function remapRenderTabs() {
+      var box = document.getElementById('remapTabs');
+      if (!box) return;
+      box.innerHTML = '';
+      REMAP_TABS.forEach(function (t) {
+        var d = document.createElement('div');
+        d.className = 'remap-tab' + (t.id === remapCat ? ' on' : '');
+        d.textContent = t.name;
+        d.addEventListener('click', function () { remapCat = t.id; remapRenderTabs(); remapRenderGrid(); });
+        box.appendChild(d);
+      });
+    }
+    function remapRenderGrid() {
+      var box = document.getElementById('remapGrid');
+      if (!box) return;
+      box.innerHTML = '';
+      var tab = REMAP_TABS.filter(function (t) { return t.id === remapCat; })[0];
+      if (!tab) return;
+      var cur = remapSel !== null ? keyCache[String(remapSel)] : null;
+      tab.list.forEach(function (item) {
+        var d = document.createElement('div');
+        d.className = 'remap-key';
+        d.textContent = item.label;
+        if (cur) {
+          if (item.page === 2 && cur[0] === 2 && cur[2] === item.value) d.classList.add('on');
+          if (item.page === 3 && cur[0] === 3 && (cur[1] | (cur[2] << 8)) === item.value) d.classList.add('on');
+        }
+        d.addEventListener('click', function () { remapApply(item); });
+        box.appendChild(d);
+      });
+    }
+    async function remapApply(item) {
+      if (remapSel === null) { setRemapFoot('先在键盘图上点一个键'); return; }
+      var d = item.page === 2 ? [2, 0, item.value, 0] : [3, item.value & 255, (item.value >> 8) & 255, 0];
+      setRemapFoot('写入中…');
+      try {
+        var r = await api.remap_set(remapSel, d[0], d[1], d[2], d[3]);
+        if (r && r.ok) {
+          keyCache[String(remapSel)] = d;
+          var k = keyByLed(remapSel);
+          if (k) k.name = item.label;
+          remapCurText();
+          remapRenderGrid();
+          setRemapFoot('已写入：' + item.label);
+        } else {
+          setRemapFoot('写入失败');
+        }
+      } catch (e) { setRemapFoot('写入失败'); }
+    }
+    async function enterRemap() {
+      remapMode = true;
+      var btn = document.getElementById('remapBtn');
+      if (btn) btn.classList.add('on');
+      var rt = document.getElementById('rtToggle');
+      if (rt) rt.checked = false;
+      realtimeOn = false;
+      try { await api.set_realtime(false); } catch (e) {}
+      // 清掉预览颜色，键帽回到深色底（否则会保留最后一帧灯效颜色）
+      for (var pi = 0; pi < pvTarget.length; pi++) pvTarget[pi] = 0;
+      document.querySelectorAll('.panels .card').forEach(function (el) { el.classList.add('blur-out'); });
+      var panel = document.getElementById('remapPanel');
+      if (panel) panel.classList.add('show');
+      remapRenderTabs();
+      remapRenderGrid();
+      remapCurText();
+      setRemapFoot('正在读取键位…（十几秒）');
+      try {
+        var r = await api.remap_read_all();
+        if (r && r.ok) {
+          keyCache = r.keys || {};
+          setRemapFoot('键位已读取 · 点键盘上的键后选新键码');
+          remapCurText();
+          remapRenderGrid();
+        } else {
+          setRemapFoot('读取键位失败：' + ((r && r.reason) || '未知'));
+        }
+      } catch (e) { setRemapFoot('读取键位失败'); }
+    }
+    async function exitRemap() {
+      remapMode = false;
+      remapSel = null;
+      var btn = document.getElementById('remapBtn');
+      if (btn) btn.classList.remove('on');
+      document.querySelectorAll('.panels .card').forEach(function (el) { el.classList.remove('blur-out'); });
+      var panel = document.getElementById('remapPanel');
+      if (panel) panel.classList.remove('show');
+      refreshLockUI();
+      var rt = document.getElementById('rtToggle');
+      if (rt) rt.checked = true;
+      realtimeOn = true;
+      try { await api.set_realtime(true); } catch (e) {}
+    }
+    function pickRemapKey(k) {
+      remapSel = k.led;
+      remapCurText();
+      remapRenderGrid();
+    }
+    var remapBtnEl = document.getElementById('remapBtn');
+    if (remapBtnEl) remapBtnEl.addEventListener('click', function () { if (remapMode) exitRemap(); else enterRemap(); });
+    var remapExitEl = document.getElementById('remapExit');
+    if (remapExitEl) remapExitEl.addEventListener('click', exitRemap);
+    var remapReloadEl = document.getElementById('remapReload');
+    async function reloadRemapKeys() {
+      if (remapReloadEl) { remapReloadEl.disabled = true; remapReloadEl.textContent = '读取中…'; }
+      setRemapFoot('正在读取键位…（十几秒）');
+      try {
+        var r = await api.remap_read_all();
+        if (r && r.ok) {
+          keyCache = r.keys || {};
+          setRemapFoot('键位已重新读取 · ' + (r.count || Object.keys(keyCache).length) + ' 个键');
+          remapCurText();
+          remapRenderGrid();
+        } else {
+          setRemapFoot('读取失败：' + ((r && r.reason) || '未知'));
+        }
+      } catch (e) {
+        setRemapFoot('读取失败');
+      }
+      if (remapReloadEl) { remapReloadEl.disabled = false; remapReloadEl.textContent = '读取键值'; }
+    }
+    if (remapReloadEl) remapReloadEl.addEventListener('click', reloadRemapKeys);
+
+    // ---- 性能监控面板 ----
+    var perfTimer = null;
+    var perfBusy = false;
+    function perfRow(name, barPct, text) {
+      var p = Math.max(0, Math.min(100, barPct || 0));
+      return '<div class="perf-row"><span class="perf-name">' + name + '</span>' +
+        '<span class="perf-bar"><i style="width:' + p + '%"></i></span>' +
+        '<span class="perf-val">' + text + '</span></div>';
+    }
+    async function perfRefresh() {
+      if (perfBusy) return;
+      perfBusy = true;
+      try {
+        var m = await api.metrics();
+        var sum = document.getElementById('perfSum');
+        var list = document.getElementById('perfList');
+        if (!m || !m.ok) {
+          if (sum) sum.textContent = '监控不可用' + ((m && m.reason) ? '（' + m.reason + '）' : '');
+          return;
+        }
+        if (sum) {
+          sum.innerHTML = 'CPU <b>' + m.cpu.toFixed(1) + '%</b> · 内存 <b>' + m.mem.toFixed(1) + ' MB</b>' +
+            ' · 线程 ' + m.sys_threads + '<br>HID 读 ' + m.hid.reads + ' / 写 ' + m.hid.writes;
+        }
+        var html = '';
+        (m.threads || []).forEach(function (t) {
+          if (t.cpu < 0.01) return;
+          html += perfRow(t.name, Math.min(100, t.cpu * 10), t.cpu.toFixed(1) + '%');
+        });
+        if (list) list.innerHTML = html || '<div class="perf-row"><span class="perf-name">空闲（全部 0%）</span></div>';
+      } catch (e) {
+      } finally {
+        perfBusy = false;
+      }
+    }
+    function perfToggle(on) {
+      var panel = document.getElementById('perfPanel');
+      if (!panel) return;
+      var show = (on === undefined) ? !panel.classList.contains('show') : on;
+      panel.classList.toggle('show', show);
+      if (show) {
+        perfRefresh();
+        if (perfTimer) clearInterval(perfTimer);
+        perfTimer = setInterval(perfRefresh, 2000);
+      } else if (perfTimer) {
+        clearInterval(perfTimer);
+        perfTimer = null;
+      }
+    }
+    var perfBtnEl = document.getElementById('perfBtn');
+    if (perfBtnEl) perfBtnEl.addEventListener('click', function () { perfToggle(); });
+    var perfCloseEl = document.getElementById('perfClose');
+    if (perfCloseEl) perfCloseEl.addEventListener('click', function () { perfToggle(false); });
+
     ['selAll', 'selWASD', 'selNum', 'selDir'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', rebuildSelection);
@@ -1396,6 +1796,20 @@ setTimeout(function () {
       return String(name).replace(/^L-|^R-/, '').replace(/^Num /, '');
     }
 
+    // 音量 / 计算器这几个键，用矢量图标代替文字
+    var KEY_ICON_SRC = {
+      '音量+': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2VlZjJmOCIgY2xhc3M9ImJpIGJpLXZvbHVtZS11cC1maWxsIiB2aWV3Qm94PSIwIDAgMTYgMTYiPgogIDxwYXRoIGQ9Ik0xMS41MzYgMTQuMDFBOC40NzMgOC40NzMgMCAwIDAgMTQuMDI2IDhhOC40NzMgOC40NzMgMCAwIDAtMi40OS02LjAxbC0uNzA4LjcwN0E3LjQ3NiA3LjQ3NiAwIDAgMSAxMy4wMjUgOGMwIDIuMDcxLS44NCAzLjk0Ni0yLjE5NyA1LjMwM2wuNzA4LjcwN3oiLz4KICA8cGF0aCBkPSJNMTAuMTIxIDEyLjU5NkE2LjQ4IDYuNDggMCAwIDAgMTIuMDI1IDhhNi40OCA2LjQ4IDAgMCAwLTEuOTA0LTQuNTk2bC0uNzA3LjcwN0E1LjQ4MyA1LjQ4MyAwIDAgMSAxMS4wMjUgOGE1LjQ4MyA1LjQ4MyAwIDAgMS0xLjYxIDMuODlsLjcwNi43MDZ6Ii8+CiAgPHBhdGggZD0iTTguNzA3IDExLjE4MkE0LjQ4NiA0LjQ4NiAwIDAgMCAxMC4wMjUgOGE0LjQ4NiA0LjQ4NiAwIDAgMC0xLjMxOC0zLjE4Mkw4IDUuNTI1QTMuNDg5IDMuNDg5IDAgMCAxIDkuMDI1IDggMy40OSAzLjQ5IDAgMCAxIDggMTAuNDc1bC43MDcuNzA3ek02LjcxNyAzLjU1QS41LjUgMCAwIDEgNyA0djhhLjUuNSAwIDAgMS0uODEyLjM5TDMuODI1IDEwLjVIMS41QS41LjUgMCAwIDEgMSAxMFY2YS41LjUgMCAwIDEgLjUtLjVoMi4zMjVsMi4zNjMtMS44OWEuNS41IDAgMCAxIC41MjktLjA2eiIvPgo8L3N2Zz4=',
+      '音量-': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2VlZjJmOCIgY2xhc3M9ImJpIGJpLXZvbHVtZS1kb3duLWZpbGwiIHZpZXdCb3g9IjAgMCAxNiAxNiI+CiAgPHBhdGggZD0iTTkgNGEuNS41IDAgMCAwLS44MTItLjM5TDUuODI1IDUuNUgzLjVBLjUuNSAwIDAgMCAzIDZ2NGEuNS41IDAgMCAwIC41LjVoMi4zMjVsMi4zNjMgMS44OUEuNS41IDAgMCAwIDkgMTJWNHptMy4wMjUgNGE0LjQ4NiA0LjQ4NiAwIDAgMS0xLjMxOCAzLjE4MkwxMCAxMC40NzVBMy40ODkgMy40ODkgMCAwIDAgMTEuMDI1IDggMy40OSAzLjQ5IDAgMCAwIDEwIDUuNTI1bC43MDctLjcwN0E0LjQ4NiA0LjQ4NiAwIDAgMSAxMi4wMjUgOHoiLz4KPC9zdmc+',
+      '静音': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2VlZjJmOCIgY2xhc3M9ImJpIGJpLXZvbHVtZS1tdXRlLWZpbGwiIHZpZXdCb3g9IjAgMCAxNiAxNiI+CiAgPHBhdGggZD0iTTYuNzE3IDMuNTVBLjUuNSAwIDAgMSA3IDR2OGEuNS41IDAgMCAxLS44MTIuMzlMMy44MjUgMTAuNUgxLjVBLjUuNSAwIDAgMSAxIDEwVjZhLjUuNSAwIDAgMSAuNS0uNWgyLjMyNWwyLjM2My0xLjg5YS41LjUgMCAwIDEgLjUyOS0uMDZ6bTcuMTM3IDIuMDk2YS41LjUgMCAwIDEgMCAuNzA4TDEyLjIwNyA4bDEuNjQ3IDEuNjQ2YS41LjUgMCAwIDEtLjcwOC43MDhMMTEuNSA4LjcwN2wtMS42NDYgMS42NDdhLjUuNSAwIDAgMS0uNzA4LS43MDhMMTAuNzkzIDggOS4xNDYgNi4zNTRhLjUuNSAwIDEgMSAuNzA4LS43MDhMMTEuNSA3LjI5M2wxLjY0Ni0xLjY0N2EuNS41IDAgMCAxIC43MDggMHoiLz4KPC9zdmc+',
+      '计算器': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2VlZjJmOCIgY2xhc3M9ImJpIGJpLWdyaWQtM3gzLWdhcC1maWxsIiB2aWV3Qm94PSIwIDAgMTYgMTYiPgogIDxwYXRoIGQ9Ik0xIDJhMSAxIDAgMCAxIDEtMWgyYTEgMSAwIDAgMSAxIDF2MmExIDEgMCAwIDEtMSAxSDJhMSAxIDAgMCAxLTEtMVYyem01IDBhMSAxIDAgMCAxIDEtMWgyYTEgMSAwIDAgMSAxIDF2MmExIDEgMCAwIDEtMSAxSDdhMSAxIDAgMCAxLTEtMVYyem01IDBhMSAxIDAgMCAxIDEtMWgyYTEgMSAwIDAgMSAxIDF2MmExIDEgMCAwIDEtMSAxaC0yYTEgMSAwIDAgMS0xLTFWMnpNMSA3YTEgMSAwIDAgMSAxLTFoMmExIDEgMCAwIDEgMSAxdjJhMSAxIDAgMCAxLTEgMUgyYTEgMSAwIDAgMS0xLTFWN3ptNSAwYTEgMSAwIDAgMSAxLTFoMmExIDEgMCAwIDEgMSAxdjJhMSAxIDAgMCAxLTEgMUg3YTEgMSAwIDAgMS0xLTFWN3ptNSAwYTEgMSAwIDAgMSAxLTFoMmExIDEgMCAwIDEgMSAxdjJhMSAxIDAgMCAxLTEgMWgtMmExIDEgMCAwIDEtMS0xVjd6TTEgMTJhMSAxIDAgMCAxIDEtMWgyYTEgMSAwIDAgMSAxIDF2MmExIDEgMCAwIDEtMSAxSDJhMSAxIDAgMCAxLTEtMXYtMnptNSAwYTEgMSAwIDAgMSAxLTFoMmExIDEgMCAwIDEgMSAxdjJhMSAxIDAgMCAxLTEgMUg3YTEgMSAwIDAgMS0xLTF2LTJ6bTUgMGExIDEgMCAwIDEgMS0xaDJhMSAxIDAgMCAxIDEgMXYyYTEgMSAwIDAgMS0xIDFoLTJhMSAxIDAgMCAxLTEtMXYtMnoiLz4KPC9zdmc+'
+    };
+    var keyIcons = {};
+    Object.keys(KEY_ICON_SRC).forEach(function (name) {
+      var im = new Image();
+      im.onload = function () { keyIcons[name] = im; };
+      im.src = KEY_ICON_SRC[name];
+    });
+
     function drawPreview() {
       if (!pvReady) return;
       for (let i = 0; i < pvCur.length; i++) {
@@ -1435,6 +1849,13 @@ setTimeout(function () {
           pvCtx.fill();
           pvCtx.restore();
         }
+        // 改键模式：选中的键描蓝框
+        if (remapMode && remapSel === k.led) {
+          pvCtx.strokeStyle = '#2b7cff';
+          pvCtx.lineWidth = 3 * PV_SCALE;
+          roundRect(pvCtx, k.x + 0.5, k.y + 0.5, k.w, k.h, 4 * PV_SCALE);
+          pvCtx.stroke();
+        }
         // 单键改色：选中的键描一圈黄框
         if (selSet.has(k.led)) {
           pvCtx.strokeStyle = '#ffbf2e';
@@ -1442,8 +1863,16 @@ setTimeout(function () {
           roundRect(pvCtx, k.x + 0.5, k.y + 0.5, k.w, k.h, 4 * PV_SCALE);
           pvCtx.stroke();
         }
-        // 键名（白字，放大一点）
-        if (k.w > 12 && k.h > 10) {
+        // 键名：音量/计算器这几颗用图标，其余画文字
+        var iconImg = keyIcons[k.name];
+        if (iconImg && iconImg.complete && iconImg.naturalWidth) {
+          const sz = Math.min(k.w, k.h) * 0.56;
+          const ix = k.x + (k.w - sz) / 2, iy = k.y + (k.h - sz) / 2;
+          pvCtx.save();
+          pvCtx.globalAlpha = lit ? 1 : 0.92;
+          pvCtx.drawImage(iconImg, ix, iy, sz, sz);
+          pvCtx.restore();
+        } else if (k.w > 12 && k.h > 10) {
           const label = labelOf(k.name || '').slice(0, 6);
           const fs = Math.max(7 * PV_SCALE, Math.min(12 * PV_SCALE, Math.floor(k.w * 0.34), Math.floor(k.h * 0.55)));
           pvCtx.font = '600 ' + fs + 'px "Noto Sans SC", "Microsoft YaHei", sans-serif';
@@ -1552,5 +1981,45 @@ setTimeout(function () {
   requestAnimationFrame(frame);
 })();
 </script>
+
+<button class="perf-fab" id="perfBtn">性能</button>
+<div class="perf-panel" id="perfPanel">
+  <div class="perf-head">
+    <span class="perf-title">性能监控</span>
+    <span class="spacer"></span>
+    <span class="perf-x" id="perfClose">×</span>
+  </div>
+  <div class="perf-sum" id="perfSum">采样中…</div>
+  <div id="perfList"></div>
+</div>
+<svg class="lg-defs" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <filter id="liquidGlass" x="-35%" y="-35%" width="170%" height="170%" color-interpolation-filters="sRGB">
+      <feImage x="0" y="0" width="100%" height="100%" result="LG_MAP" href="data:image/jpeg;base64,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cUAUAkEkziomgGgkoxZGgxZFQFQlYnQHRdPfj/10KCSCKESCNiVkViPSLpD0h6I0Q0I0A2IoBWBIJIBKBIJoJIJ2R2J0JWBUJ0JUB0XTv479dFZDYiglYigkhEgjZFQjRFQjRFQjQigFYigHYigmgEgmglYlYnQlQlYlQHQlQnQ9P/kf1yVkNiNCNkNiVENiNiViNEViNkVCVgKCViViViSCViSCVgdCViVCViVCdgVCVCdD1D+U/XBWQ2I0I2Q2JUQ2I0JWQ0I2JUQ2JUI2JUI2J0JWJWJWA2R0BWJ0I2JUJ2BUJUJ0P//EABkQAQEBAQEBAAAAAAAAAAAAAAECABEDEP/aAAgBAQABAgB1atWrVq1atWrVq1atWrVq1atWrVq1atWrVq+OrVq1atWrVq1atWrVq1atWrVq1atWrVq1atXxVppppppdWrVq1atWrVq1NNNNNNNNNNNPVWmmmmms6tWrVq1atWpppppppppppppp6q0000uc51atWrVq1ammmmmmmmmmmmmt1Vpppc5znVq1atWrVqaaaaaaaaaaaaaeqtNLnOc51atWrVq1ammmmmmmmmmmmmnqrS5znOc6tWrVq16222mmmmmmlVppp6tKuc5znOrVq1a9TbbbbTTTTTSq000qtLnOc5zq1atWrW0222200000qqqtKqrnOc5zq1atTbbbbbbbbTTTSqqqqqq5znOc6tTTTbbbbbbbbTTTSqqqqrlVznOctNNNtttttttttNNNNKqqqrqznKqrTTTTbbbbbbbbbTTTSqqqqrqznOc5aaaabbbbbbbbbaaaaVVVVVdWc5znVq1NNttttttttttNNKqqqqudWc5znVq16tbbbbbbbbbbTTSqqqq5XVnOc6tWrVrb1tttttttttNNKqqqqrWrK5VWmmm2230bbbbbbaaaXOc5zlVa1KuVVppptttt9G22222mmlzlVznK6tWVVWmmmm2222222222mlznOc5znLWppVVWmmm22222229bTWrOc5znOcq1qaaVpWmm222222229erVqznOc5znKtatStK0rTbTTbbbberXr1as5znOc5aVpppppWlabaabbbb1ta9WrVnOc5znU0rTTTTTTTTTbTTbbbTWvVq1as5znOdTTStNNNNNNNNNtNNtttN6tWvVq1ZznOrU00rTTTTTTTTTTTTTbTWvVq1atWrOc6tTTTStNNNNNNNNNNtNNtNa9WrVq1Z1Z1NNNNNK1q1NNNNNNNNNNNtNatWrVq1atWrU00000rWrVq1atWrVq1alaaa1atWrVq1NNNammmmla1atWrVq1aterVq16tWrVnVqa1NK1qaaaVX/xAAWEAADAAAAAAAAAAAAAAAAAAAhgJD/2gAIAQEAAz8AaExf/8QAGhEBAQEBAQEBAAAAAAAAAAAAAQISEQADEP/aAAgBAgEBAgDx48ePHjx48ePHjx48ePHjx48ePHjx48ePHj86IiIiIiInjx48ePHjx48IiIiIj0oooooooooRERER73ve60UUUUUUVrWiiiiiihERERER73ve97ooooorRWiiiiihKERERER73ve973RRRRWtFFFFFFCIiIiIiPe973ve60UUVrRRRRRRQiIlCIiI973ve973pRRWiiiiiiiiiiiiiiihEe973ve973RRWtFFFFFFFFFFFFFFFFFFa13ve973WitaKKKKKKKKKKKKKKKKKK1rWtd1rutFa1oooooooooooosssooorWta1rWta1rRRRRRRRRRRZZZZZZZZZWta1rWta1rRRRRRRRRZZZZZZZZZZZZe9a1rWta1rWitaKLLLLLLLLLLLLLLLLL3rWta1rWtFbLLLLLLLLLLLLLLLLLLLL3vWta1rWita1ssssssss+hZZZZZZZZe961rWta0Vre97LLLLLLLLLLLPoWWWWWXrWta1oorWta3ssss+hZZZZ9Cyyyyyyyyiita1orWta1ve9llllllllllllllllFFa0VorWta1ve9llllllllllllllllllFFFaK1rWta1rWiyyyyyyyyyyyyiiiiiiitFFa1rWta1oosoosssssoooosoooorRRRWta1rWta0UUUUUWUUUUUUUUUUUVoooorWta1rWtaKKKKKKmiiiiiiiiiiiiiiitd73ve61oSiiipoqaKKKKKKKKKK0UUUVrve973vREREZoSihEooooorRRRRWtd73ve9EREREREoSiiiiitFllllla73ve9ERERERESiiiiiitH0PoWWWWVrXe96IiIiMoiJRRRRRRWjwlFFllllFFd6IiIiIlCUUUUUUUUUePHjx48ePCIiIiIiIiUUUUUUUUUUUePHjx48ePHjx48ePHjx48IiUUUUUUJRRRX//xAAWEQADAAAAAAAAAAAAAAAAAAABYJD/2gAIAQIBAz8AtEV7/8QAFxEBAQEBAAAAAAAAAAAAAAAAAAECEP/aAAgBAwEBAgCtNNNNNNNNNNNNNNNNNNNNNNNNNNNNNcrTTTTTTTTTTTTTTTTTTTTTTTTTTTTTXKrTTTTTTTU000000000000000000001FVpppppqampqaaaaaaaaaaaaaaaaaaaa5Vaaaaampqampqammmmmmmmmmmlaaaaaaiq0001NTU1NTU1NTTTTTTTTTTSqqtNNNcqtNNSyzU1LNTU1NTTTTTTTTTSqqq001ytNLLLLNTU1NTU1NTbbbTTTTTSqqq001ytNLLLLLNTU1NTU3NttttNNNNNKqq001KrSyyyyyzU1NTU3Nzc02220000qqqqrSqqyyyyyzU1NTU3Nzc3NttttNNNKqqqqqqssssss1NTU3Nzc3NzbbbbTTTSqqqqqqrLLLLLNTU1Nzc3Nzc22220000qqqqqqqqssss1NTU3Nzc3NzbbbbbTTSqqqqqqqqqqzU1NTc3Nzc3Nzbc22000qqqqqqqqqqqtTU3Nzc3Nzc3NtzbTTSqqqqrKqqqqqtNNzc23Nzc3Nzc3NTU1KqqqrKqqqqqtNNNNttzc3Nzc3NzU1NLLLLLKqqqqqqqq0022223Nzc3NzU1NSyyyyyyqqqqqqqrTTbbbbc3Nzc3NTU1LLLLLLKsqqqqqqrTTTTbbbc3Nzc1NTUsssssssqqqqqqrTTTTTbbbTc3NTU1NTUsssssqqqqqqqq0000222023NTU1NTUsssssqqqqqqqq000000003NTU1NTU1LLLLLNKrTSqqqqtNNNNNNtNNTU1NSzUssss00qq0qqqqrTTTTTTTTTU1NTUs1LLLNNNKrTTTSqqq00000000001NTU1LNTU0000qtNNNKqqqtNNNNNNNNTU1NTUs1NNNNNKss1NNNK00qtK0000001NNTU0s000000qq000001NKrStNNNNK1NNNNStNNNNNKqtNNNNNNNK0000000rU0000rTTTTTSq00000rTTTTTTTTTTTTTTTTStNNNNKr/xAAUEQEAAAAAAAAAAAAAAAAAAACg/9oACAEDAQM/AAAf/9k=" preserveAspectRatio="xMidYMid slice"/>
+      <feColorMatrix in="LG_MAP" type="matrix"
+        values="0.3 0.3 0.3 0 0  0.3 0.3 0.3 0 0  0.3 0.3 0.3 0 0  0 0 0 1 0" result="LG_EDGE_I"/>
+      <feComponentTransfer in="LG_EDGE_I" result="LG_EDGE">
+        <feFuncA type="discrete" tableValues="0 0.10 1"/>
+      </feComponentTransfer>
+      <feOffset in="SourceGraphic" dx="0" dy="0" result="LG_CENTER"/>
+      <feDisplacementMap in="SourceGraphic" in2="LG_MAP" scale="-38" xChannelSelector="R" yChannelSelector="B" result="LG_R"/>
+      <feColorMatrix in="LG_R" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="LG_RC"/>
+      <feDisplacementMap in="SourceGraphic" in2="LG_MAP" scale="-37.9" xChannelSelector="R" yChannelSelector="B" result="LG_G"/>
+      <feColorMatrix in="LG_G" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="LG_GC"/>
+      <feDisplacementMap in="SourceGraphic" in2="LG_MAP" scale="-37.8" xChannelSelector="R" yChannelSelector="B" result="LG_B"/>
+      <feColorMatrix in="LG_B" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="LG_BC"/>
+      <feBlend in="LG_GC" in2="LG_BC" mode="screen" result="LG_GB"/>
+      <feBlend in="LG_RC" in2="LG_GB" mode="screen" result="LG_RGB"/>
+      <feGaussianBlur in="LG_RGB" stdDeviation="0.3" result="LG_AB"/>
+      <feComposite in="LG_AB" in2="LG_EDGE" operator="in" result="LG_EDGE_A"/>
+      <feComponentTransfer in="LG_EDGE" result="LG_INV">
+        <feFuncA type="table" tableValues="1 0"/>
+      </feComponentTransfer>
+      <feComposite in="LG_CENTER" in2="LG_INV" operator="in" result="LG_CLEAN"/>
+      <feComposite in="LG_EDGE_A" in2="LG_CLEAN" operator="over"/>
+    </filter>
+  </defs>
+</svg>
+
 </body>
 </html>
