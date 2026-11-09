@@ -2,6 +2,13 @@
 
 [中文](CHANGELOG.md) | **English**
 
+## v1.0.5 — 2026-11-09
+
+### Fixed
+
+- **High CPU usage while minimized or hidden to the tray**: hiding the window did not stop the front-end 30fps polling and preview repainting, so the GPU and renderer processes kept running at full speed — around 12% on a 12-core machine. The front-end now checks two signals: a back-end `paused` flag polled once per second, plus `visibilitychange`. Both the tray and the minimized states are covered. Measured: 11.7% in the foreground → 0.03% minimized / 0.18% in the tray.
+- Also fixed `drawPreview` returning early before the preview was ready, which killed the rAF loop and stopped the preview from ever repainting.
+
 ## v1.0.4 — 2026-11-09
 
 ### Fixed

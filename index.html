@@ -1810,8 +1810,11 @@ setTimeout(function () {
       im.src = KEY_ICON_SRC[name];
     });
 
+    let pvRaf = null;
+
     function drawPreview() {
-      if (!pvReady) return;
+      // 未就绪时继续挂着 rAF，别让循环断掉（原来 return 就再也不画了）
+      if (!pvReady) { pvRaf = requestAnimationFrame(drawPreview); return; }
       for (let i = 0; i < pvCur.length; i++) {
         const t = pvTarget[i];
         const rate = (t < pvCur[i]) ? 0.75 : 0.55;
@@ -1889,16 +1892,47 @@ setTimeout(function () {
           pvCtx.fillText(label, cx, cy);
         }
       }
-      requestAnimationFrame(drawPreview);
+      pvRaf = requestAnimationFrame(drawPreview);
     }
 
+    let pvTimer = null;
+    function startLiveLoop() {
+      if (pvTimer) return;
+      if (realtimeOn) pullColors();
+      pvTimer = setInterval(function () { if (realtimeOn) pullColors(); }, 33);   // 前端拉取 30fps
+      if (!pvRaf) pvRaf = requestAnimationFrame(drawPreview);
+    }
+    function stopLiveLoop() {
+      if (pvTimer) { clearInterval(pvTimer); pvTimer = null; }
+      if (pvRaf) { cancelAnimationFrame(pvRaf); pvRaf = null; }
+    }
+    // 收进托盘时由 Python 侧的 evaluate_js 调用。只停后端 HID 不够：前端这套
+    // 30fps 轮询 + canvas 重绘不停，隐藏窗口照样让 GPU 进程和渲染进程满速跑。
+    window.__dmlitPause = stopLiveLoop;
+    window.__dmlitResume = startLiveLoop;
+
+    // 前端循环什么时候该停：收进托盘（后端 paused）或者窗口被最小化（document.hidden）。
+    // 两条通道都留着 —— evaluate_js 从别的线程调过去不一定执行，
+    // 轮询和 visibilitychange 是兜底，一秒一次 IPC 的开销可以忽略。
+    let hostPaused = false;
+    function applyLiveState() {
+      if (hostPaused || document.hidden) stopLiveLoop();
+      else startLiveLoop();
+    }
+    setInterval(function () {
+      if (!api || typeof api.ui_state !== 'function') return;
+      api.ui_state().then(function (s) {
+        hostPaused = !!(s && s.paused);
+        applyLiveState();
+      }).catch(function () {});
+    }, 1000);
+    document.addEventListener('visibilitychange', applyLiveState);
+
     api.preview_start().catch(function () {});
-    pullColors();
-    setInterval(pullColors, 33);   // 前端拉取 30fps
+    startLiveLoop();
 
     // 所有初始化完成后再按后端状态回填控件（启动恢复、开机自启都用这口径）
     api.status().then(function (st2) { applyUiFromStatus(st2); }).catch(function () {});
-    requestAnimationFrame(drawPreview);
 
     // ---- 关闭启动动画（至少显示 2 秒）----    const splash = document.getElementById('splash');
     if (splash) {

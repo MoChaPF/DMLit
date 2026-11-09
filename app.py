@@ -868,6 +868,11 @@ class Api:
             pass
         return {'ok': True}
 
+    def ui_state(self):
+        # 窗口是否收进托盘。前端每秒轮询它来决定停/起渲染循环。
+        # 不能只靠 evaluate_js —— 从 JS API 线程或托盘线程调用不一定会执行。
+        return {'paused': bool(getattr(self, '_paused', False))}
+
     def status(self):
         print('STATUS page=', hex(self.kb.page) if self.kb.page else None, flush=True)
         return {
@@ -1371,6 +1376,12 @@ def main():
             api.set_realtime(hidden_state['realtime'])
         except Exception:
             pass
+        api._paused = False
+        # 恢复前端的 30fps 轮询和预览重绘
+        try:
+            window.evaluate_js('window.__dmlitResume && window.__dmlitResume()')
+        except Exception:
+            pass
 
     def do_quit(*_):
         quitting['value'] = True
@@ -1391,7 +1402,15 @@ def main():
     def on_closing():
         if quitting['value']:
             return True
-        # 收进托盘时停掉实时读取（省键盘带宽/CPU），窗口回来再恢复
+        # 收进托盘：先停前端循环，再停后端 HID 读取。
+        # 顺序不能反 —— 窗口一旦隐藏，evaluate_js 就不一定还能执行到；
+        # 而且只停 HID 的话，前端那套 30fps 轮询 + canvas 重绘还在跑，
+        # 隐藏窗口照样让 GPU 进程和渲染进程满速转。
+        api._paused = True
+        try:
+            window.evaluate_js('window.__dmlitPause && window.__dmlitPause()')
+        except Exception:
+            pass
         try:
             hidden_state['realtime'] = api.realtime
             api.set_realtime(False)
