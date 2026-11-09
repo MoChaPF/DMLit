@@ -21,6 +21,10 @@ Lighting control tool for the **WEIKAV VEGA108** keyboard. Works over USB and 2.
 - **Launch on startup**: enabled by default, toggle from the tray menu
 - Real-time readback is paused while minimized to the tray
 
+## Changelog
+
+See [CHANGELOG_EN.md](CHANGELOG_EN.md) for per-version changes.
+
 ## Download
 
 Grab **DMLit.exe** and double-click — no Python required:

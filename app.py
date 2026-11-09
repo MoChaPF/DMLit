@@ -1447,7 +1447,15 @@ def main():
     icon = pystray.Icon('DMLit', tray_image(), 'DMLit · VEGA108', menu)
     threading.Thread(target=icon.run, daemon=True, name='tray').start()
 
-    webview.start()
+    # WebView2 的 profile 目录必须固定。默认 private_mode=True 时 pywebview 每次启动都会
+    # 在 %TEMP% 下新建一个 tmpXXXX 目录当 user data folder，正常退出时它会自己删，
+    # 但本程序退出走 os._exit(0)（以及开发调试时 Ctrl+C 强杀），清理逻辑根本跑不到，
+    # 实测 11-07~11-09 三天堆了 330 个目录、7.26 GB。
+    # private_mode=False + 固定 storage_path：全程复用同一份 profile，不再产生临时目录。
+    profile_dir = os.path.join(
+        os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'), 'DMLit', 'WebView2'
+    )
+    webview.start(private_mode=False, storage_path=profile_dir)
 
 
 if __name__ == '__main__':
