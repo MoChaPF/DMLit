@@ -13,13 +13,14 @@ Lighting control tool for the **WEIKAV VEGA108** keyboard. Works over USB and 2.
 - **Real-time color readback**: reads per-key colors (USB `cmd 51`, wireless `cmd 59`)
 - **Battery level**: works on both USB and 2.4G
 - **Per-key coloring**: pick a color first, then click a keycap to paint it; select all / WASD / number row / arrow keys to recolor in bulk (keyboard mode 20, persisted via `SET_CUSTOM_LED_DATA`, so it no longer rolls back after a few seconds)
+- **Key remapping**: click **改键**, select a key on the keyboard layout, then pick a new keycode — written straight to the keyboard (`SET_KEY=34` full-table write, `GET_KEY=18` readback). Don't remap the Fn key (`0xAF`), it's a firmware special key
 - Color, brightness, speed and direction controls
 - **State memory**: saves the last effect/color/brightness to `state.json` and restores it on launch
-- Splash screen, Liquid Glass style UI
+- Splash screen, frosted-glass UI
 - Auto-detects USB / 2.4G and shows the connection type
 - **System tray**: closing the window keeps it running in the tray
 - **Launch on startup**: enabled by default, toggle from the tray menu
-- Real-time readback is paused while minimized to the tray
+- **Auto-pause when minimized or hidden to the tray**: both real-time readback and UI repainting (30fps polling + preview redraw) stop, dropping background CPU from ~12% to under 0.2%; resumes automatically when the window returns
 
 ## Changelog
 
@@ -85,6 +86,7 @@ Reverse-engineered from the vendor's web driver:
 - Wireless (2.4G, usagePage `0xFF60`) has its own command subset: `GET_ALL_LIGHTS_RGB_24G_64_BYTE=59` (colors + battery), `SET_MUSIC_DATA_24G_64_BYTE=60` (push frames)
 - Firmware effects must include `driverSetting=255`, otherwise the wireless channel drops the whole packet
 - Per-key coloring uses keyboard **mode 20** (the firmware's own "custom" effect) with `SET_CUSTOM_LED_DATA=36`: 512 bytes = 128 LEDs × `[ledId, r, g, b]`. Writing it as temporary data (cmd 50) gets overwritten by the firmware animation within seconds
+- Key remapping: `SET_KEY=34` full-table write (512 bytes = 128 keys × `[pageType, p1, p2, p3]`), `GET_KEY=18` readback. The reply uses a custom header `AA 12 04 addrLo addrHi 00 00 00` with data at `r[8..11]`; skip `cmd=51` RGB noise packets when parsing
 
 ## Known limitations
 
