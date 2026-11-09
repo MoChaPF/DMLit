@@ -58,6 +58,8 @@ python app.py
 - **Real-time readback uses keyboard bandwidth** — turn it off when you don't need live colors
 - While music mode is on, speed/brightness and the color palette are locked (the software takes over)
 - Per-key coloring: click **自定义** to enter the mode, pick a color first, then click a keycap. For bulk edits tick all / WASD / number row / arrow keys, then click a color
+- **Key remapping**: click **改键**, pick a key on the keyboard, then pick a new keycode — written straight to the keyboard (`SET_KEY=34`, full-table write)
+- **Performance panel**: live CPU / memory plus per-thread CPU and HID read/write counters
 - Closing the app returns the keyboard to its built-in lighting
 
 ## Files
@@ -85,6 +87,53 @@ Reverse-engineered from the vendor's web driver:
 - Reading the current effect (`cmd 19`) blocks for a long time on wireless; the app skips it and relies on saved state
 - Effect tables may differ between firmware revisions
 - Software-driven full-frame updates are limited by the USB endpoint; firmware effects are free of that cost
+
+## Adapting to other keyboards
+
+Only VEGA108 is supported right now. To port this tool to another keyboard, see **[docs/适配指南.md](docs/适配指南.md)** (Chinese) — written for an AI assistant: protocol reverse-engineering, code map, a 10-step checklist and the known pitfalls.
+
+## Using an AI assistant
+
+This project was written from scratch by an AI assistant (DSH) in a single conversation. To work the same way:
+
+### What you need
+
+| Item | Notes |
+|---|---|
+| **DeepSeek Harness (DSH)** | Desktop AI coding client with file and shell access |
+| **`dsh-plugin-memory`** (optional) | Long-term memory, so the assistant remembers project context, protocol findings and pitfalls |
+| **Not needed** | No lighting or keyboard plugins — the assistant captures the HID traffic itself |
+
+File access, shell commands and web search are built into DSH — no plugins required.
+
+### Copy-paste install request
+
+```
+Install this DSH plugin and tell me if a restart is needed:
+dsh-plugin-memory — long-term memory for project context, protocol findings and past pitfalls
+
+If it's not in the plugin marketplace, install it by npm package name dsh-plugin-memory.
+Then read docs/适配指南.md and help me adapt DMLit.
+```
+
+### Hand the project over
+
+1. Clone the repo locally (it needs `app.py`, `index.html`, `docs/`, `vega108_layout.json`)
+2. Set that folder as the working directory in DSH
+3. Start a new conversation and paste this prompt:
+
+```
+Read docs/适配指南.md and docs/键盘手册.md, then read the Keyboard and Api classes in app.py.
+I want to adapt DMLit to <my keyboard model>.
+Follow the 10-step checklist in the guide, and verify each step before moving on.
+Protocol conclusions must be backed by packet captures or real tests — no guessing.
+```
+
+### Three rules for the user
+
+- **Don't let it skip packet capture** — code written from guesses will be wrong
+- **Verify after every change** instead of batching them up
+- **Let it stop and ask** when the protocol is unclear; slow beats guessing
 
 ## License
 
