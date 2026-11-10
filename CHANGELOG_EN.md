@@ -2,6 +2,14 @@
 
 [中文](CHANGELOG.md) | **English**
 
+## v1.0.6 — 2026-11-10
+
+### Fixed
+
+- **The app hung when clicking the close button** (Windows reported "stopped interacting with Windows and was closed"): introduced in v1.0.5. `on_closing` called `evaluate_js` synchronously to tell the front-end to pause, but at the moment the window is closing the WebView no longer responds, so the main thread blocked — the whole app froze after clicking ×.
+  - It now only sets the back-end `paused` flag and lets the front-end pause/resume itself via the per-second poll. No more `evaluate_js` on the close path.
+  - Measured: the process stays `responding=True` after closing, background CPU 0.05%.
+
 ## v1.0.5 — 2026-11-09
 
 ### Fixed

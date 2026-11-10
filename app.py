@@ -1377,11 +1377,8 @@ def main():
         except Exception:
             pass
         api._paused = False
-        # 恢复前端的 30fps 轮询和预览重绘
-        try:
-            window.evaluate_js('window.__dmlitResume && window.__dmlitResume()')
-        except Exception:
-            pass
+        # 前端轮询会在一秒内自己把渲染循环接回来，不用 evaluate_js
+        # （从托盘线程调过去会阻塞，别在这条路径上冒挂起的风险）
 
     def do_quit(*_):
         quitting['value'] = True
@@ -1402,15 +1399,10 @@ def main():
     def on_closing():
         if quitting['value']:
             return True
-        # 收进托盘：先停前端循环，再停后端 HID 读取。
-        # 顺序不能反 —— 窗口一旦隐藏，evaluate_js 就不一定还能执行到；
-        # 而且只停 HID 的话，前端那套 30fps 轮询 + canvas 重绘还在跑，
-        # 隐藏窗口照样让 GPU 进程和渲染进程满速转。
+        # 收进托盘：只设标志，前端每秒轮询 api.ui_state() 自己停掉渲染循环。
+        # 千万别在这里调 evaluate_js —— 关闭窗口时同步等 WebView 回应会把主线程
+        # 卡死，Windows 报 Application Hang，表现就是点 × 之后整个程序无响应。
         api._paused = True
-        try:
-            window.evaluate_js('window.__dmlitPause && window.__dmlitPause()')
-        except Exception:
-            pass
         try:
             hidden_state['realtime'] = api.realtime
             api.set_realtime(False)
